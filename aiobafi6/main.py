@@ -15,6 +15,13 @@ ARGS.add_argument(
     dest="ip_addr",
     help="device address",
 )
+ARGS.add_argument(
+    "-s",
+    "--speed",
+    action="store",
+    dest="speed",
+    help="set fan speed",
+)
 
 PORT = 31415
 
@@ -446,16 +453,9 @@ def process_inner_0x12_message(buf: bytes) -> int:
     return buf_size
 
 
-async def async_main():
-    args = ARGS.parse_args()
-    try:
-        # do some checking on IP address
-        ip_addr = ipaddress.ip_address(args.ip_addr)
-    except ValueError:
-        print("invalid address ", args.ip_addr)
-        return
+async def query_state(ip_addr: str):
     print("Connecting to ", ip_addr)
-    reader, writer = await asyncio.open_connection(str(ip_addr), PORT)
+    reader, writer = await asyncio.open_connection(ip_addr, PORT)
     writer.write(b"\xc0\x12\x02\x1a\x00\xc0")
     await writer.drain()
     while True:
@@ -478,6 +478,35 @@ async def async_main():
                 buf = buf[size:]
             else:
                 raise RuntimeError(f"unexpected value in buffer: {hex(buf[0])}")
+
+
+async def set_speed(ip_addr: str, speed: int):
+    if speed < 0 or speed > 7:
+        raise ValueError(f"invalid speed value: {speed}")
+    packet = bytearray(b"\xc0\x12\x07\x12\x05\x1a\x03\xf0\x02")
+    packet.extend([speed, 0xC0])
+    print(f"Setting speed of fan at {ip_addr} to {speed}")
+    reader, writer = await asyncio.open_connection(ip_addr, PORT)
+    writer.write(packet)
+    await writer.drain()
+    writer.close()
+    b = await reader.read()
+    print(f"set_speed response data: {b}")
+    await writer.wait_closed()
+
+
+async def async_main():
+    args = ARGS.parse_args()
+    try:
+        # do some checking on IP address
+        ip_addr = ipaddress.ip_address(args.ip_addr)
+    except ValueError:
+        print("invalid address ", args.ip_addr)
+        return
+    if args.speed is not None:
+        await set_speed(str(ip_addr), int(args.speed))
+    else:
+        await query_state(str(ip_addr))
 
 
 def main():
