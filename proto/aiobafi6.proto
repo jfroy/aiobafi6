@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package aiobafi6;
+
+message Root { Root2 root2 = 2; }
+
+message Root2 { Root4 root4 = 4; }
+
+message Root4 {
+  repeated Property properties = 2;
+  repeated Command commands = 3;
+}
+
+enum OnOffAuto {
+  OFF = 0;
+  ON = 1;
+  AUTO = 2;
+}
+
+message Property {
+  oneof value {
+    string name = 1;
+    string model = 2;
+    string local_datetime = 4; // ISO 8601
+    string utc_datetime = 5;   // ISO 8601
+    string firmware_version = 7;
+    string mac_addr = 8;
+
+    string uuid9 = 9;
+    string uuid10 = 10;
+    string api_endpoint = 11;
+
+    Property16 prop16 = 16;
+    Capabilities capabilities = 17;
+
+    OnOffAuto fan_mode = 43;
+    bool reverse_enable = 44;
+    int32 speed_percent = 45;
+    int32 speed = 46;
+
+    bool whoosh_enable = 58;
+    bool eco_enable = 65;
+
+    bool motion_sense_enable = 52;
+    int32 motion_sense_delay = 53; // in s
+
+    bool return_to_auto_enable = 54;
+    int32 return_to_auto_delay = 55; // in s
+
+    bool auto_comfort_enable = 47;
+    int32 comfort_ideal_temperature = 48; // divide by 100.0, in ºC
+    bool comfort_heat_assist_enable = 60;
+    int32 comfort_heat_assist_speed = 61;
+    bool comfort_reverse_enable = 62;
+    int32 comfort_min_speed = 50; // 0 for no min
+    int32 comfort_max_speed = 51; // 7 for no max
+
+    OnOffAuto light_mode = 68;
+    int32 light_brightness = 69;
+    int32 light_brightness_level = 70;
+    int32 light_color_temperature = 71;
+    int32 light_auto_motion_delay = 73;
+    bool light_return_to_auto_enable = 74;
+    int32 light_return_to_auto_delay = 75;
+    bool light_dim_to_warm_enable = 77;
+    int32 light_warmest_color_temperature = 78;
+    int32 light_coolest_color_temperature = 79;
+
+    int32 temperature = 86; // divide by 100.0, in ºC
+    int32 humidity = 87;    // divide by 100.0, in ºC
+
+    string ip_addr = 120;
+    WifiProperty wifi = 124;
+
+    bool led_indicators_enable = 134;
+    bool fan_beep_enable = 135;
+    bool legacy_ir_remote_enable = 136;
+  }
+}
+
+message Property16 {
+  int32 unknown1 = 1;
+  string unknown2 = 2;
+  string unknown3 = 3;
+}
+
+message Capabilities {}
+
+message WifiProperty { string ssid = 1; }
+
+message Command {}
