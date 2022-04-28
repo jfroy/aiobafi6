@@ -1,16 +1,16 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package aiobafi6;
 
-message Root { Root2 root2 = 2; }
+message Root { optional Root2 root2 = 2; }
 
 message Root2 {
-  Command command = 2;
-  KeepAlive keep_alive = 3;
-  Query query = 4;
+  optional Command command = 2;
+  optional KeepAlive keep_alive = 3;
+  optional Query query = 4;
 }
 
-message Command { Command3 command3 = 3; }
+message Command { optional Command3 command3 = 3; }
 
 message Command3 {
   oneof command {
@@ -19,7 +19,7 @@ message Command3 {
   }
 }
 
-message KeepAlive { int32 unknown1 = 1; }
+message KeepAlive { optional int32 unknown1 = 1; }
 
 message Query { repeated Property properties = 2; }
 
@@ -91,11 +91,11 @@ message Property {
 }
 
 message Property16 {
-  int32 unknown1 = 1;
-  string unknown2 = 2;
-  string unknown3 = 3;
+  optional int32 unknown1 = 1;
+  optional string unknown2 = 2;
+  optional string unknown3 = 3;
 }
 
 message Capabilities {}
 
-message WifiProperties { string ssid = 1; }
+message WifiProperties { optional string ssid = 1; }
