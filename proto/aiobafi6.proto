@@ -6,6 +6,7 @@ message Root { Root2 root2 = 2; }
 
 message Root2 {
   Command command = 2;
+  KeepAlive keep_alive = 3;
   Query query = 4;
 }
 
@@ -17,6 +18,8 @@ message Command3 {
     int32 set_speed = 46; // between 0 and 7
   }
 }
+
+message KeepAlive { int32 unknown1 = 1; }
 
 message Query { repeated Property properties = 2; }
 

@@ -34,26 +34,35 @@ ARGS.add_argument(
 PORT = 31415
 
 
-async def query_state(ip_addr: str):
-    print("Connecting to ", ip_addr)
-    reader, writer = await asyncio.open_connection(ip_addr, PORT)
-    writer.write(b"\xc0\x12\x02\x1a\x00\xc0")
-    await writer.drain()
-    i = 0
+async def keep_alive(writer: asyncio.StreamWriter):
+    print("sending initial keep-alive command")
+    root = aiobafi6_pb2.Root()
+    root.root2.keep_alive.SetInParent()
+    writer.write(wireutils.serialize(root))
     while True:
-        try:
-            # The wire format frames protobuf messages with 0xc0, so the first
-            # `readuntil` will return just that byte and the next will return the
-            # message with the terminating byte.
-            raw_buf = await asyncio.wait_for(reader.readuntil(b"\xc0"), 10)
-            if len(raw_buf) == 1:
-                continue
-            buf = wireutils.remove_emulation_prevention(raw_buf[:-1])
-        except asyncio.TimeoutError:
-            return
-        with open(f"baf_dump-{i}.bin", "wb") as f:
-            f.write(buf)
-        i += 1
+        await asyncio.sleep(15)
+        print("sending refresh keep-alive command")
+        root = aiobafi6_pb2.Root()
+        root.root2.keep_alive.unknown1 = 3
+        writer.write(wireutils.serialize(root))
+
+
+async def query_state(ip_addr: str):
+    print(f"Querying all state from {ip_addr}")
+    reader, writer = await asyncio.open_connection(ip_addr, PORT)
+    _ = asyncio.create_task(keep_alive(writer))
+    # i = 0
+    while True:
+        # The wire format frames protobuf messages with 0xc0, so the first `readuntil`
+        # will return just that byte and the next will return the message with the
+        # terminating byte.
+        raw_buf = await reader.readuntil(b"\xc0")
+        if len(raw_buf) == 1:
+            continue
+        buf = wireutils.remove_emulation_prevention(raw_buf[:-1])
+        # with open(f"baf_dump-{i}.bin", "wb") as f:
+        #     f.write(buf)
+        # i += 1
         root = aiobafi6_pb2.Root()
         root.ParseFromString(buf)
         print(root)
