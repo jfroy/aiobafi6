@@ -10,12 +10,12 @@ message Root2 {
   optional Query query = 4;
 }
 
-message Commit { optional Property property = 3; }
+message Commit { optional Properties properties = 3; }
 
 message KeepAlive { optional int32 unknown1 = 1; }
 
 message Query {
-  repeated Property properties = 2;
+  repeated Properties properties = 2;
   repeated Schedule schedules = 3;
 }
 
@@ -25,79 +25,80 @@ enum OnOffAuto {
   AUTO = 2;
 }
 
-message Property {
-  oneof value {
-    // General
-    string name = 1;
-    string model = 2;
-    string local_datetime = 4; // ISO 8601
-    string utc_datetime = 5;   // ISO 8601
-    string firmware_version = 7;
-    string mac_addr = 8;
+message Properties {
+  // General
+  optional string name = 1;
+  optional string model = 2;
+  optional string local_datetime = 4; // ISO 8601
+  optional string utc_datetime = 5;   // ISO 8601
+  optional string firmware_version = 7;
+  optional string mac_addr = 8;
 
-    // Cloud API
-    string uuid9 = 9;
-    string uuid10 = 10;
-    string api_endpoint = 11;
+  // Cloud API
+  optional string uuid9 = 9;
+  optional string uuid10 = 10;
+  optional string api_endpoint = 11;
 
-    FirmwareProperties firmware = 16;
-    Capabilities capabilities = 17;
+  optional FirmwareProperties firmware = 16;
+  optional Capabilities capabilities = 17;
 
-    // Fan
-    OnOffAuto mode = 43;
-    bool reverse_enable = 44;
-    int32 speed_percent = 45; // 0-100
-    int32 speed = 46;         // 0-7
+  // Fan
+  optional OnOffAuto mode = 43;
+  optional bool reverse_enable = 44;
+  optional int32 speed_percent = 45; // 0-100
+  optional int32 speed = 46;         // 0-7
 
-    bool whoosh_enable = 58;
-    bool eco_enable = 65;
+  optional bool whoosh_enable = 58;
+  optional bool eco_enable = 65;
 
-    bool auto_comfort_enable = 47;
-    int32 comfort_ideal_temperature = 48; // divide by 100.0, in ºC
-    bool comfort_heat_assist_enable = 60;
-    int32 comfort_heat_assist_speed = 61;
-    bool comfort_heat_assist_reverse_enable = 62;
-    int32 comfort_min_speed = 50; // 0 for no min
-    int32 comfort_max_speed = 51; // 7 for no max
+  optional bool auto_comfort_enable = 47;
+  optional int32 comfort_ideal_temperature = 48; // divide by 100.0, in ºC
+  optional bool comfort_heat_assist_enable = 60;
+  optional int32 comfort_heat_assist_speed = 61;
+  optional bool comfort_heat_assist_reverse_enable = 62;
+  optional int32 comfort_min_speed = 50; // 0 for no min
+  optional int32 comfort_max_speed = 51; // 7 for no max
 
-    bool motion_sense_enable = 52;
-    int32 motion_sense_timeout = 53; // in s
+  optional bool motion_sense_enable = 52;
+  optional int32 motion_sense_timeout = 53; // in s
 
-    bool return_to_auto_enable = 54;
-    int32 return_to_auto_timeout = 55; // in s
+  optional bool return_to_auto_enable = 54;
+  optional int32 return_to_auto_timeout = 55; // in s
 
-    // Light
-    OnOffAuto light_mode = 68;
-    int32 light_brightness_percent = 69; // 0-100
-    int32 light_brightness_level = 70;   // 0-16
-    int32 light_color_temperature = 71;
+  // Light
+  optional OnOffAuto light_mode = 68;
+  optional int32 light_brightness_percent = 69; // 0-100
+  optional int32 light_brightness_level = 70;   // 0-16
+  optional int32 light_color_temperature = 71;
 
-    bool light_dim_to_warm_enable = 77;
+  optional bool light_dim_to_warm_enable = 77;
 
-    int32 light_auto_motion_timeout = 73;
+  optional int32 light_auto_motion_timeout = 73;
 
-    bool light_return_to_auto_enable = 74;
-    int32 light_return_to_auto_timeout = 75;
+  optional bool light_return_to_auto_enable = 74;
+  optional int32 light_return_to_auto_timeout = 75;
 
-    int32 light_warmest_color_temperature = 78;
-    int32 light_coolest_color_temperature = 79;
+  optional int32 light_warmest_color_temperature = 78;
+  optional int32 light_coolest_color_temperature = 79;
 
-    // Sensors
-    int32 temperature = 86; // divide by 100.0, in ºC
-    int32 humidity = 87;    // divide by 100.0, in ºC
+  // Sensors
+  optional int32 temperature = 86; // divide by 100.0, in ºC
+  optional int32 humidity = 87;    // divide by 100.0, in ºC
 
-    // Connectivity
-    string ip_addr = 120;
-    WifiProperties wifi = 124;
+  // Connectivity
+  optional string ip_addr = 120;
+  optional WifiProperties wifi = 124;
 
-    // More
-    bool led_indicators_enable = 134;
-    bool fan_beep_enable = 135;
-    bool legacy_ir_remote_enable = 136;
+  // More
+  optional bool led_indicators_enable = 134;
+  optional bool fan_beep_enable = 135;
+  optional bool legacy_ir_remote_enable = 136;
 
-    // Controls
-    FirmwareProperties remote_firmware = 152;
-  }
+  // Controls
+  optional FirmwareProperties remote_firmware = 152;
+
+  // Unknown 156 changes frequently during keep-alive query.
+  optional Unknown156 unknown_156 = 156;
 }
 
 message FirmwareProperties {
@@ -106,10 +107,17 @@ message FirmwareProperties {
   optional string mac_addr = 4;
 }
 
-message Capabilities {
-  optional bool has_light = 4;
-}
+message Capabilities { optional bool has_light = 4; }
 
 message WifiProperties { optional string ssid = 1; }
 
 message Schedule {}
+
+message Unknown156 {
+  optional int32 unknown1 = 1;
+  optional int32 unknown2 = 2;
+  optional int32 unknown3 = 3;
+  optional int32 unknown4 = 4;
+  optional int32 unknown5 = 5;
+  optional int32 unknown6 = 6;
+}

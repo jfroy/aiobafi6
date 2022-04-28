@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import difflib
 import ipaddress
 
 from aiobafi6.generated import aiobafi6_pb2
 from aiobafi6 import wireutils
+from google.protobuf import text_format
 
 ARGS = argparse.ArgumentParser(description="Command line tool for aiobaf6.")
 ARGS.add_argument(
@@ -55,6 +57,10 @@ async def query_state(ip_addr: str, dump: bool):
     reader, writer = await asyncio.open_connection(ip_addr, PORT)
     _ = asyncio.create_task(keep_alive(writer))
     i = 0
+    previous = aiobafi6_pb2.Properties()
+    latest = aiobafi6_pb2.Properties()
+    unknown = {}
+    previous_sorted_unknown = []
     while True:
         # The wire format frames protobuf messages with 0xc0, so the first `readuntil`
         # will return just that byte and the next will return the message with the
@@ -69,16 +75,40 @@ async def query_state(ip_addr: str, dump: bool):
             i += 1
         root = aiobafi6_pb2.Root()
         root.ParseFromString(buf)
-        print(root)
+        for p in root.root2.query.properties:
+            for f in p.UnknownFields():
+                unknown[f.field_number] = f.data
+        root.DiscardUnknownFields()
+        for p in root.root2.query.properties:
+            try:
+                p.ClearField("local_datetime")
+                p.ClearField("utc_datetime")
+            except ValueError():
+                pass
+            latest.MergeFrom(p)
+        d = "".join(
+            difflib.unified_diff(
+                text_format.MessageToString(previous).splitlines(keepends=True),
+                text_format.MessageToString(latest).splitlines(keepends=True),
+            )
+        )
+        if len(d) > 0:
+            print(d)
+        previous.CopyFrom(latest)
+        sorted_unknown = [f"{k}: {str(unknown[k])}\n" for k in sorted(unknown.keys())]
+        d = "".join(difflib.unified_diff(previous_sorted_unknown, sorted_unknown))
+        if len(d) > 0:
+            print(d)
+        previous_sorted_unknown = sorted_unknown
 
 
 async def set_property(ip_addr: str, property: str, value: int, dump: bool):
     print(f"Setting {property} of fan at {ip_addr} to {value}")
     root = aiobafi6_pb2.Root()
     try:
-        setattr(root.root2.commit.property, property, value)
+        setattr(root.root2.commit.properties, property, value)
     except TypeError:
-        setattr(root.root2.commit.property, property, int(value))
+        setattr(root.root2.commit.properties, property, int(value))
     buf = wireutils.serialize(root)
     if dump:
         with open(f"dump-set-{property}-{value}.bin", "wb") as f:
