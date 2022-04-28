@@ -4,12 +4,21 @@ package aiobafi6;
 
 message Root { Root2 root2 = 2; }
 
-message Root2 { Root4 root4 = 4; }
-
-message Root4 {
-  repeated Property properties = 2;
-  repeated Command commands = 3;
+message Root2 {
+  Command command = 2;
+  Query query = 4;
 }
+
+message Command { Command3 command3 = 3; }
+
+message Command3 {
+  oneof command {
+    OnOffAuto set_fan_mode = 43;
+    int32 set_speed = 46; // between 0 and 7
+  }
+}
+
+message Query { repeated Property properties = 2; }
 
 enum OnOffAuto {
   OFF = 0;
@@ -36,7 +45,7 @@ message Property {
     OnOffAuto fan_mode = 43;
     bool reverse_enable = 44;
     int32 speed_percent = 45;
-    int32 speed = 46;
+    int32 speed = 46; // between 0 and 7
 
     bool whoosh_enable = 58;
     bool eco_enable = 65;
@@ -70,7 +79,7 @@ message Property {
     int32 humidity = 87;    // divide by 100.0, in ºC
 
     string ip_addr = 120;
-    WifiProperty wifi = 124;
+    WifiProperties wifi = 124;
 
     bool led_indicators_enable = 134;
     bool fan_beep_enable = 135;
@@ -86,6 +95,4 @@ message Property16 {
 
 message Capabilities {}
 
-message WifiProperty { string ssid = 1; }
-
-message Command {}
+message WifiProperties { string ssid = 1; }

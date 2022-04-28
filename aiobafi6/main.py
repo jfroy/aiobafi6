@@ -23,6 +23,13 @@ ARGS.add_argument(
     dest="speed",
     help="set fan speed",
 )
+ARGS.add_argument(
+    "-m",
+    "--mode",
+    action="store",
+    dest="fan_mode",
+    help="set fan mode",
+)
 
 PORT = 31415
 
@@ -55,15 +62,26 @@ async def query_state(ip_addr: str):
 async def set_speed(ip_addr: str, speed: int):
     if speed < 0 or speed > 7:
         raise ValueError(f"invalid speed value: {speed}")
-    packet = bytearray(b"\xc0\x12\x07\x12\x05\x1a\x03\xf0\x02")
-    packet.extend([speed, 0xC0])
     print(f"Setting speed of fan at {ip_addr} to {speed}")
+    root = aiobafi6_pb2.Root()
+    root.root2.command.command3.set_speed = speed
     reader, writer = await asyncio.open_connection(ip_addr, PORT)
-    writer.write(packet)
+    writer.write(wireutils.serialize(root))
     await writer.drain()
     writer.close()
-    b = await reader.read()
-    print(f"set_speed response data: {b}")
+    await writer.wait_closed()
+
+
+async def set_fan_mode(ip_addr: str, mode: int):
+    if mode < 0 or mode > 2:
+        raise ValueError(f"invalid mode value: {mode}")
+    print(f"Setting mode of fan at {ip_addr} to {mode}")
+    root = aiobafi6_pb2.Root()
+    root.root2.command.command3.set_fan_mode = mode
+    reader, writer = await asyncio.open_connection(ip_addr, PORT)
+    writer.write(wireutils.serialize(root))
+    await writer.drain()
+    writer.close()
     await writer.wait_closed()
 
 
@@ -77,6 +95,8 @@ async def async_main():
         return
     if args.speed is not None:
         await set_speed(str(ip_addr), int(args.speed))
+    elif args.fan_mode is not None:
+        await set_fan_mode(str(ip_addr), int(args.fan_mode))
     else:
         await query_state(str(ip_addr))
 

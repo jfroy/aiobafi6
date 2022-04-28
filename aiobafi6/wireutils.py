@@ -1,6 +1,20 @@
 """Utilities for BAF i6 wire serialization and deserialization."""
 from __future__ import annotations
 
+from aiobafi6.generated import aiobafi6_pb2
+
+
+def serialize(root: aiobafi6_pb2.Root) -> bytes:
+    """Serializes a message for transmission.
+
+    This will serialize the root proto message, apply emulation prevention sequences
+    and add the `0xc0` framing bytes.
+    """
+    buf = bytearray([0xc0])
+    buf.extend(add_emulation_prevention(root.SerializeToString()))
+    buf.append(0xc0)
+    return buf
+
 
 def add_emulation_prevention(buf: bytes) -> bytes:
     """Adds emulation prevention sequences.
