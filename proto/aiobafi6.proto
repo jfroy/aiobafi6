@@ -100,8 +100,8 @@ message Properties {
   // Controls
   optional FirmwareProperties remote_firmware = 152;
 
-  // Unknown 156 changes frequently during keep-alive query.
-  optional Unknown156 unknown_156 = 156;
+  // Speculatively called stats because it contains uptime.
+  optional Stats stats = 156;
 }
 
 message FirmwareProperties {
@@ -116,8 +116,8 @@ message WifiProperties { optional string ssid = 1; }
 
 message Schedule {}
 
-message Unknown156 {
-  optional int32 unknown1 = 1;
+message Stats {
+  optional int32 uptime_minutes = 1;
   optional int32 unknown2 = 2;
   optional int32 unknown3 = 3;
   optional int32 unknown4 = 4;
