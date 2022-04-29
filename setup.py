@@ -43,7 +43,7 @@ setup(
     url="https://github.com/jfroy/aiobafi6",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=["protobuf>=3.20"],
+    install_requires=["protobuf~=3.20", "zeroconf~=0.38"],
     license="Apache 2.0",
     cmdclass={
         "develop": CustomDevelopCommand,
