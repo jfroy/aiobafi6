@@ -39,23 +39,23 @@ ARGS.add_argument(
 PORT = 31415
 
 
-async def keep_alive(writer: asyncio.StreamWriter):
-    print("sending initial keep-alive")
+async def query_loop(writer: asyncio.StreamWriter):
+    print("sending initial query")
     root = aiobafi6_pb2.Root()
-    root.root2.keep_alive.SetInParent()
+    root.root2.query.property_query = aiobafi6_pb2.ALL
     writer.write(wireutils.serialize(root))
     while True:
         await asyncio.sleep(15)
-        print("sending refresh keep-alive")
+        print("sending refresh query")
         root = aiobafi6_pb2.Root()
-        root.root2.keep_alive.unknown1 = 3
+        root.root2.query.property_query = aiobafi6_pb2.ALL
         writer.write(wireutils.serialize(root))
 
 
 async def query_state(ip_addr: str, dump: bool):
     print(f"Querying all state from {ip_addr}")
     reader, writer = await asyncio.open_connection(ip_addr, PORT)
-    _ = asyncio.create_task(keep_alive(writer))
+    _ = asyncio.create_task(query_loop(writer))
     i = 0
     previous = aiobafi6_pb2.Properties()
     latest = aiobafi6_pb2.Properties()
@@ -75,14 +75,21 @@ async def query_state(ip_addr: str, dump: bool):
             i += 1
         root = aiobafi6_pb2.Root()
         root.ParseFromString(buf)
-        for p in root.root2.query.properties:
+        for p in root.root2.query_result.properties:
             for f in p.UnknownFields():
                 unknown[f.field_number] = f.data
         root.DiscardUnknownFields()
-        for p in root.root2.query.properties:
+        for p in root.root2.query_result.properties:
             try:
                 p.ClearField("local_datetime")
+            except ValueError():
+                pass
+            try:
                 p.ClearField("utc_datetime")
+            except ValueError():
+                pass
+            try:
+                p.stats.ClearField("uptime_minutes")
             except ValueError():
                 pass
             latest.MergeFrom(p)

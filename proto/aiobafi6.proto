@@ -6,15 +6,25 @@ message Root { optional Root2 root2 = 2; }
 
 message Root2 {
   optional Commit commit = 2;
-  optional KeepAlive keep_alive = 3;
-  optional Query query = 4;
+  optional Query query = 3;
+  optional QueryResult query_result = 4;
 }
 
 message Commit { optional Properties properties = 3; }
 
-message KeepAlive { optional int32 unknown1 = 1; }
+enum ProperyQuery {
+  ALL = 0;
+  FAN = 1;
+  LIGHT = 2;
+  FIRMWARE_MORE_DATETIME_API = 3;
+  NETWORK = 4;
+  SCHEDULES = 5;
+  SENSORS = 6;
+}
 
-message Query {
+message Query { optional ProperyQuery property_query = 1; }
+
+message QueryResult {
   repeated Properties properties = 2;
   repeated Schedule schedules = 3;
 }
