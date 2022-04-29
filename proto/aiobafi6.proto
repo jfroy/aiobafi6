@@ -65,6 +65,9 @@ message Properties {
   optional bool return_to_auto_enable = 54;
   optional int32 return_to_auto_timeout = 55; // in s
 
+  optional int32 target_rpm = 63;
+  optional int32 current_rpm = 64;
+
   // Light
   optional OnOffAuto light_mode = 68;
   optional int32 light_brightness_percent = 69; // 0-100
