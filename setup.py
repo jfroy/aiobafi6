@@ -1,8 +1,9 @@
-import pathlib
 import os
+import pathlib
 from subprocess import check_call
-from setuptools.command.develop import develop
+
 from setuptools import find_packages, setup
+from setuptools.command.develop import develop
 
 
 def generate_proto_code():
