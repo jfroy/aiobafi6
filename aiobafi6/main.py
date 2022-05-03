@@ -6,11 +6,13 @@ import asyncio
 import difflib
 import ipaddress
 
-from aiobafi6.generated import aiobafi6_pb2
-from aiobafi6 import wireutils
 from google.protobuf import text_format
-from zeroconf import IPVersion, ServiceStateChange, Zeroconf
-from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZeroconf
+from zeroconf import IPVersion
+from zeroconf.asyncio import AsyncZeroconf
+
+from aiobafi6 import wireutils
+from aiobafi6.discovery import make_service_browser
+from aiobafi6.generated import aiobafi6_pb2
 
 ARGS = argparse.ArgumentParser(description="Command line tool for aiobaf6.")
 ARGS.add_argument(
@@ -46,49 +48,6 @@ ARGS.add_argument(
 )
 
 PORT = 31415
-
-
-def on_api_service_state_change(
-    zeroconf: Zeroconf,
-    service_type: str,
-    name: str,
-    state_change: ServiceStateChange,
-) -> None:
-    print(f"service {name} of type {service_type} state changed: {state_change}")
-    _ = asyncio.create_task(resolve_service(zeroconf, service_type, name))
-
-
-async def resolve_service(zeroconf: Zeroconf, service_type: str, name: str) -> None:
-    info = AsyncServiceInfo(service_type, name)
-    if not await info.async_request(zeroconf, 3000):
-        print(f"failed to resolve service {name} of type {service_type}")
-        return
-    if info.properties is None:
-        print(f"service {name} of type {service_type} has no properties")
-        return
-    try:
-        api_version = int(info.properties[b"api version"].decode("utf-8"))
-        model = info.properties[b"model"].decode("utf-8")
-        uuid = info.properties[b"uuid"].decode("utf-8")
-        name = info.properties[b"name"].decode("utf-8")
-    except ValueError:
-        return
-    except KeyError:
-        return
-    if api_version < 4:
-        return
-    print(
-        f"discovered device: name=`{name}`, model=`{model}`, uuid={uuid}, api_version={api_version}, addrs={info.parsed_scoped_addresses()}, port={info.port}"
-    )
-
-
-async def discover_loop():
-    aiozc = AsyncZeroconf(ip_version=IPVersion.V4Only)
-    _ = AsyncServiceBrowser(
-        aiozc.zeroconf, ["_api._tcp.local."], handlers=[on_api_service_state_change]
-    )
-    while True:
-        await asyncio.sleep(1)
 
 
 async def query_loop(writer: asyncio.StreamWriter):
@@ -189,7 +148,12 @@ async def async_main():
             print("invalid address ", args.ip_addr)
             return
     if args.discover:
-        await discover_loop()
+        aiozc = AsyncZeroconf(ip_version=IPVersion.V4Only)
+        _ = make_service_browser(
+            aiozc.zeroconf, lambda services: print(f"Discover callback: {services}")
+        )
+        while True:
+            await asyncio.sleep(1)
     elif args.property is not None:
         if args.value is None:
             raise RuntimeError("must specify property value")
