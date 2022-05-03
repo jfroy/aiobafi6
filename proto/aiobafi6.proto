@@ -44,9 +44,9 @@ message Properties {
   optional string firmware_version = 7;
   optional string mac_addr = 8;
 
-  // Cloud API
+  // API
   optional string uuid9 = 9;
-  optional string uuid10 = 10;
+  optional string dns_sd_uuid = 10;  // uuid used for _api._tcp dns service
   optional string api_endpoint = 11;
 
   optional FirmwareProperties firmware = 16;
