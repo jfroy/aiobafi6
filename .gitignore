@@ -1,8 +1,5 @@
 # https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore
 
-# Generated code
-generated/
-
 # Dumps
 /dumps
 
