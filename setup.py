@@ -52,10 +52,11 @@ setup(
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Framework :: AsyncIO",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Topic :: Home Automation",
     ],
     keywords="BigAssFans i6 Haiku HaikuHome SenseME fan home automation assistant",
-    python_requires=">=3.9",
+    python_requires=">=3.8",
 )
