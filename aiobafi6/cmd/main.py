@@ -5,16 +5,20 @@ import argparse
 import asyncio
 import difflib
 import ipaddress
+import logging.config
 
 from google.protobuf import text_format
 from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncZeroconf
 
-from aiobafi6 import wireutils
-from aiobafi6.discovery import make_service_browser
-from aiobafi6.generated import aiobafi6_pb2
+from .. import wireutils
+from ..device import Device
+from ..discovery import PORT, Service, ServiceBrowser
+from ..proto import aiobafi6_pb2
 
-ARGS = argparse.ArgumentParser(description="Command line tool for aiobaf6.")
+ARGS = argparse.ArgumentParser(
+    description="Command line tool for aiobaf6.\n\nThe tool supports a direct connection mode that is more powerful for debugging."
+)
 ARGS.add_argument(
     "-s",
     "--discover",
@@ -37,6 +41,13 @@ ARGS.add_argument(
     help="enable proto dumping",
 )
 ARGS.add_argument(
+    "-r",
+    "--direct",
+    action="store_true",
+    dest="direct",
+    help="directly connect to device, bypassing library",
+)
+ARGS.add_argument(
     "property",
     nargs="?",
     help="property name",
@@ -47,7 +58,32 @@ ARGS.add_argument(
     help="property value",
 )
 
-PORT = 31415
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": True,
+    "formatters": {
+        "simple": {"format": "%(levelname)s:%(asctime)s:%(name)s: %(message)s"},
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "loggers": {
+        "": {
+            "level": "INFO",
+            "handlers": ["console"],
+        },
+        "aiobafi6.device": {
+            "level": "DEBUG",
+        },
+        "aiobafi6.discovery": {
+            "level": "DEBUG",
+        },
+    },
+}
 
 
 async def query_loop(writer: asyncio.StreamWriter):
@@ -63,8 +99,8 @@ async def query_loop(writer: asyncio.StreamWriter):
         writer.write(wireutils.serialize(root))
 
 
-async def query_state(ip_addr: str, dump: bool):
-    print(f"Querying all state from {ip_addr}")
+async def direct_query_state(ip_addr: str, dump: bool):
+    print(f"directly querying all state from {ip_addr}")
     reader, writer = await asyncio.open_connection(ip_addr, PORT)
     _ = asyncio.create_task(query_loop(writer))
     i = 0
@@ -87,22 +123,13 @@ async def query_state(ip_addr: str, dump: bool):
         root = aiobafi6_pb2.Root()
         root.ParseFromString(buf)
         for p in root.root2.query_result.properties:
-            for f in p.UnknownFields():
+            for f in p.UnknownFields():  # type: ignore
                 unknown[f.field_number] = f.data
-        root.DiscardUnknownFields()
+        root.DiscardUnknownFields()  # type: ignore
         for p in root.root2.query_result.properties:
-            try:
-                p.ClearField("local_datetime")
-            except ValueError():
-                pass
-            try:
-                p.ClearField("utc_datetime")
-            except ValueError():
-                pass
-            try:
-                p.stats.ClearField("uptime_minutes")
-            except ValueError():
-                pass
+            p.ClearField("local_datetime")
+            p.ClearField("utc_datetime")
+            p.stats.ClearField("uptime_minutes")
             latest.MergeFrom(p)
         d = "".join(
             difflib.unified_diff(
@@ -120,8 +147,21 @@ async def query_state(ip_addr: str, dump: bool):
         previous_sorted_unknown = sorted_unknown
 
 
-async def set_property(ip_addr: str, property: str, value: int, dump: bool):
-    print(f"Setting {property} of fan at {ip_addr} to {value}")
+def print_device(dev: Device):
+    print("<-- callback")
+    print(dev.properties_proto)
+    print("callback -->")
+
+
+async def query_state(ip_addr: str, dump: bool):
+    print(f"querying all state from {ip_addr}")
+    dev = Device(Service(ip_addresses=[ip_addr], port=PORT), query_interval_seconds=15)
+    dev.add_callback(print_device)
+    await dev.run()
+
+
+async def direct_set_property(ip_addr: str, property: str, value: int, dump: bool):
+    print(f"directly setting {property} of {ip_addr} to {value}")
     root = aiobafi6_pb2.Root()
     try:
         setattr(root.root2.commit.properties, property, value)
@@ -138,8 +178,22 @@ async def set_property(ip_addr: str, property: str, value: int, dump: bool):
     await writer.wait_closed()
 
 
+async def set_property(ip_addr: str, property: str, value: int, dump: bool):
+    print(f"setting {property} of {ip_addr} to {value}")
+    dev = Device(Service(ip_addresses=[ip_addr], port=PORT), query_interval_seconds=0)
+    run_task = dev.run()
+    await dev.async_wait_available()
+    try:
+        setattr(dev, property, value)
+    except TypeError:
+        setattr(dev, property, int(value))
+    run_task.cancel()
+    await run_task
+
+
 async def async_main():
     args = ARGS.parse_args()
+    logging.config.dictConfig(LOGGING)
     ip_addr = None
     if args.ip_addr is not None:
         try:
@@ -149,15 +203,22 @@ async def async_main():
             return
     if args.discover:
         aiozc = AsyncZeroconf(ip_version=IPVersion.V4Only)
-        _ = make_service_browser(
-            aiozc.zeroconf, lambda services: print(f"Discover callback: {services}")
+        _ = ServiceBrowser(
+            aiozc.zeroconf, lambda services: print(f"== Discover ==\n{services}")
         )
         while True:
             await asyncio.sleep(1)
     elif args.property is not None:
         if args.value is None:
             raise RuntimeError("must specify property value")
-        await set_property(str(ip_addr), args.property, args.value, dump=args.dump)
+        if args.direct:
+            await direct_set_property(
+                str(ip_addr), args.property, args.value, dump=args.dump
+            )
+        else:
+            await set_property(str(ip_addr), args.property, args.value, dump=args.dump)
+    elif args.direct:
+        await direct_query_state(str(ip_addr), dump=args.dump)
     else:
         await query_state(str(ip_addr), dump=args.dump)
 

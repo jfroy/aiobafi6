@@ -29,7 +29,7 @@ message QueryResult {
   repeated Schedule schedules = 3;
 }
 
-enum OnOffAuto {
+enum OffOnAuto {
   OFF = 0;
   ON = 1;
   AUTO = 2;
@@ -42,18 +42,19 @@ message Properties {
   optional string local_datetime = 4; // ISO 8601
   optional string utc_datetime = 5;   // ISO 8601
   optional string firmware_version = 7;
-  optional string mac_addr = 8;
+  optional string mac_address = 8;
 
   // API
   optional string uuid9 = 9;
-  optional string dns_sd_uuid = 10;  // uuid used for _api._tcp dns service
+  optional string dns_sd_uuid = 10; // uuid used for _api._tcp dns service
   optional string api_endpoint = 11;
+  optional string api_version = 13; // speculative, but seems to match dns
 
   optional FirmwareProperties firmware = 16;
   optional Capabilities capabilities = 17;
 
   // Fan
-  optional OnOffAuto mode = 43;
+  optional OffOnAuto fan_mode = 43;
   optional bool reverse_enable = 44;
   optional int32 speed_percent = 45; // 0-100
   optional int32 speed = 46;         // 0-7
@@ -79,7 +80,7 @@ message Properties {
   optional int32 current_rpm = 64;
 
   // Light
-  optional OnOffAuto light_mode = 68;
+  optional OffOnAuto light_mode = 68;
   optional int32 light_brightness_percent = 69; // 0-100
   optional int32 light_brightness_level = 70;   // 0-16
   optional int32 light_color_temperature = 71;
@@ -96,10 +97,10 @@ message Properties {
 
   // Sensors
   optional int32 temperature = 86; // divide by 100.0, in ºC
-  optional int32 humidity = 87;    // divide by 100.0, in ºC
+  optional int32 humidity = 87;    // percent
 
   // Connectivity
-  optional string ip_addr = 120;
+  optional string ip_address = 120;
   optional WifiProperties wifi = 124;
 
   // More
@@ -117,7 +118,7 @@ message Properties {
 message FirmwareProperties {
   optional string firmware_version = 2;
   optional string bootloader_version = 3;
-  optional string mac_addr = 4;
+  optional string mac_address = 4;
 }
 
 message Capabilities { optional bool has_light = 4; }

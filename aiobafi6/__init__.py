@@ -1,8 +1,11 @@
 """aiobafi6"""
 
-from .discovery import Service, make_service_browser
+from .device import Device, OffOnAuto
+from .discovery import Service, ServiceBrowser
 
-__all__ = [
+__all__ = (
+    "Device",
+    "OffOnAuto",
     "Service",
-    "make_service_browser",
-]
+    "ServiceBrowser",
+)

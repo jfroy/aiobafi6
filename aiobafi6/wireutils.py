@@ -1,7 +1,7 @@
 """Utilities for BAF i6 wire serialization and deserialization."""
 from __future__ import annotations
 
-from aiobafi6.generated import aiobafi6_pb2
+from .proto import aiobafi6_pb2
 
 
 def serialize(root: aiobafi6_pb2.Root) -> bytes:
