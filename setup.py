@@ -1,4 +1,3 @@
-import os
 import pathlib
 from subprocess import check_call
 
@@ -7,17 +6,9 @@ from setuptools.command.develop import develop
 
 
 def generate_proto_code():
-    proto_interface_dir = "./proto"
-    generated_src_dir = "./aiobafi6/generated/"
-    out_folder = "aiobafi6"
-    if not os.path.exists(generated_src_dir):
-        os.mkdir(generated_src_dir)
-    proto_it = pathlib.Path().glob(proto_interface_dir + "/**/*")
-    proto_path = "generated=" + proto_interface_dir
+    proto_it = pathlib.Path().glob("./proto/**/*")
     protos = [str(proto) for proto in proto_it if proto.is_file()]
-    check_call(
-        ["protoc"] + protos + ["--python_out", out_folder, "--proto_path", proto_path]
-    )
+    check_call(["protoc", "--python_out=aiobafi6", "--pyi_out=aiobafi6"] + protos)
 
 
 class CustomDevelopCommand(develop):
@@ -36,7 +27,7 @@ class CustomDevelopCommand(develop):
 setup(
     name="aiobafi6",
     version="0.1.0",
-    description="Big Ass Fans i6 protocol asynchronous Python library",
+    description="Big Ass Fans i6/Haiku protocol asynchronous Python library",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author="jfroy",
@@ -48,6 +39,9 @@ setup(
     license="Apache 2.0",
     cmdclass={
         "develop": CustomDevelopCommand,
+    },
+    entry_points={
+        "console_scripts": ["aiobafi6 = aiobafi6.cmd.main:main"],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
