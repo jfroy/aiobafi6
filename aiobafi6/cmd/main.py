@@ -48,6 +48,15 @@ ARGS.add_argument(
     help="directly connect to device, bypassing library",
 )
 ARGS.add_argument(
+    "-t",
+    "--interval",
+    action="store",
+    dest="interval",
+    default=15,
+    type=int,
+    help="property query interval",
+)
+ARGS.add_argument(
     "property",
     nargs="?",
     help="property name",
@@ -86,23 +95,23 @@ LOGGING = {
 }
 
 
-async def query_loop(writer: asyncio.StreamWriter):
-    print("sending initial query")
+async def query_loop(writer: asyncio.StreamWriter, interval: int):
+    print(f"starting query loop: interval {interval}s")
     root = aiobafi6_pb2.Root()
     root.root2.query.property_query = aiobafi6_pb2.ALL
     writer.write(wireutils.serialize(root))
     while True:
-        await asyncio.sleep(15)
+        await asyncio.sleep(interval)
         print("sending refresh query")
         root = aiobafi6_pb2.Root()
         root.root2.query.property_query = aiobafi6_pb2.ALL
         writer.write(wireutils.serialize(root))
 
 
-async def direct_query_state(ip_addr: str, dump: bool):
+async def direct_query_state(ip_addr: str, dump: bool, interval: int):
     print(f"directly querying all state from {ip_addr}")
     reader, writer = await asyncio.open_connection(ip_addr, PORT)
-    _ = asyncio.create_task(query_loop(writer))
+    _ = asyncio.create_task(query_loop(writer, interval))
     i = 0
     previous = aiobafi6_pb2.Properties()
     latest = aiobafi6_pb2.Properties()
@@ -153,9 +162,11 @@ def print_device(dev: Device):
     print("callback -->")
 
 
-async def query_state(ip_addr: str, dump: bool):
-    print(f"querying all state from {ip_addr}")
-    dev = Device(Service(ip_addresses=[ip_addr], port=PORT), query_interval_seconds=15)
+async def query_state(ip_addr: str, interval: int):
+    print(f"querying all state from {ip_addr}: interval {interval}s")
+    dev = Device(
+        Service(ip_addresses=[ip_addr], port=PORT), query_interval_seconds=interval
+    )
     dev.add_callback(print_device)
     await dev.run()
 
@@ -218,9 +229,9 @@ async def async_main():
         else:
             await set_property(str(ip_addr), args.property, args.value, dump=args.dump)
     elif args.direct:
-        await direct_query_state(str(ip_addr), dump=args.dump)
+        await direct_query_state(str(ip_addr), dump=args.dump, interval=args.interval)
     else:
-        await query_state(str(ip_addr), dump=args.dump)
+        await query_state(str(ip_addr), interval=args.interval)
 
 
 def main():
