@@ -13,13 +13,15 @@ from typing import Callable, Dict, Optional, Sequence, Set, Tuple
 from zeroconf import ServiceStateChange, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 
-__all__ = ("PORT", "Service", "ServiceBrowser")
+__all__ = ("PORT", "ZEROCONF_SERVICE_TYPE", "Service", "ServiceBrowser")
 
 _LOGGER = logging.getLogger(__name__)
 
-
 """Default service API port number. Only use to manually create a `Service` object."""
 PORT = 31415
+
+"""Zeroconf service type for BAF API DNS service discovery."""
+ZEROCONF_SERVICE_TYPE = "_api._tcp.local."
 
 
 @dataclass
