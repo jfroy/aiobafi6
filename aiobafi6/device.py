@@ -9,7 +9,6 @@ import inspect
 import logging
 import time
 import typing as t
-from enum import IntEnum
 
 from google.protobuf import json_format
 from google.protobuf.message import Message
@@ -19,25 +18,19 @@ from .discovery import Service
 from .proto import aiobafi6_pb2
 from .protoprop import (
     ClosedIntervalValidator,
+    OffOnAuto,
     ProtoProp,
     from_proto_humidity,
     from_proto_temperature,
+    maybe_proto_field,
     to_proto_temperature,
 )
 
-__all__ = ("OffOnAuto", "Device")
+__all__ = ("Device",)
 
 _LOGGER = logging.getLogger(__name__)
 _DELAY_BETWEEN_CONNECT_ATTEMPTS = 5
 _MAX_SPEED = 7
-
-
-class OffOnAuto(IntEnum):
-    """Tri-state mode enum that matches the protocol buffer."""
-
-    OFF = 0
-    ON = 1
-    AUTO = 3
 
 
 class Device:
@@ -447,7 +440,7 @@ class Device:
 
     # Fan
 
-    fan_mode = ProtoProp[OffOnAuto](writable=True)
+    fan_mode = ProtoProp[OffOnAuto](writable=True, from_proto=lambda v: OffOnAuto(v))
     reverse_enable = ProtoProp[bool](writable=True)
     speed_percent = ProtoProp[int]()
     speed = ProtoProp[int](
@@ -484,7 +477,7 @@ class Device:
 
     # Light
 
-    light_mode = ProtoProp[OffOnAuto](writable=True)
+    light_mode = ProtoProp[OffOnAuto](writable=True, from_proto=lambda v: OffOnAuto(v))
     light_brightness_percent = ProtoProp[int](writable=True)
     light_brightness_level = ProtoProp[int](writable=True)
     light_color_temperature = ProtoProp[int](writable=True)
@@ -524,8 +517,3 @@ class Device:
     led_indicators_enable = ProtoProp[bool](writable=True)
     fan_beep_enable = ProtoProp[bool](writable=True)
     legacy_ir_remote_enable = ProtoProp[bool](writable=True)
-
-
-def maybe_proto_field(message: Message, field: str) -> t.Optional[t.Any]:
-    """Returns the value of `field` in `message` or `None` if not set."""
-    return getattr(message, field) if message.HasField(field) else None

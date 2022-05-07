@@ -5,12 +5,17 @@ Descriptor for `Device` attributes backed by a `Properties` protobuf field.
 from __future__ import annotations
 
 import typing as t
+from enum import IntEnum
+
+from google.protobuf.message import Message
 
 from .proto import aiobafi6_pb2
 
 __all__ = (
     "ProtoProp",
+    "OffOnAuto",
     "ClosedIntervalValidator",
+    "maybe_proto_field",
     "to_proto_temperature",
     "from_proto_temperature",
     "from_proto_humidity",
@@ -33,8 +38,8 @@ class ProtoProp(t.Generic[T]):
         self._writable = writable
         self._field_name = field_name
 
-        def ident(x: T) -> T:
-            return x
+        def ident(x: t.Any) -> T:
+            return t.cast(T, x)
 
         if to_proto is None:
             to_proto = ident
@@ -60,6 +65,19 @@ class ProtoProp(t.Generic[T]):
         p = aiobafi6_pb2.Properties()
         setattr(p, t.cast(str, self._field_name), self._to_proto(value))
         obj._commit_property(p)
+
+
+class OffOnAuto(IntEnum):
+    """Tri-state mode enum that matches the protocol buffer."""
+
+    OFF = 0
+    ON = 1
+    AUTO = 2
+
+
+def maybe_proto_field(message: Message, field: str) -> t.Optional[t.Any]:
+    """Returns the value of `field` in `message` or `None` if not set."""
+    return getattr(message, field) if message.HasField(field) else None
 
 
 class ClosedIntervalValidator(t.Generic[TLT]):
