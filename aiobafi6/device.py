@@ -29,8 +29,18 @@ from .protoprop import (
 __all__ = ("Device",)
 
 _LOGGER = logging.getLogger(__name__)
-_DELAY_BETWEEN_CONNECT_ATTEMPTS = 5
+_DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS = 30
 _MAX_SPEED = 7
+_RECV_BUFFER_LIMIT = 4096  # No message is ever expected to be > 4K
+_PROPS_REQUIRED_FOR_AVAILABLE = (
+    "name",
+    "model",
+    "firmware_version",
+    "mac_address",
+    "dns_sd_uuid",
+    "capabilities",
+    "ip_address",
+)
 
 
 class Device:
@@ -63,8 +73,8 @@ class Device:
                 f"Invalid service: must have at least one address and a port: {service}"
             )
 
-        self.query_interval_seconds = query_interval_seconds
         self.service = service
+        self._query_interval_seconds = query_interval_seconds
 
         # Permanent Properties protobuf into which query results are merged.
         self._properties = aiobafi6_pb2.Properties()
@@ -74,16 +84,18 @@ class Device:
         self._coro_callbacks: list[t.Coroutine] = []
         self._dispatch_coro_callback_tasks: t.Set[asyncio.Task] = set()
 
-        # Run task and connection. See `run`.
-        self._run_task: t.Optional[asyncio.Task] = None
-        self._connection: t.Optional[
-            tuple[asyncio.StreamReader, asyncio.StreamWriter]
-        ] = None
+        # Connection and periodic queries.
+        self._run_fut: t.Optional[asyncio.Future] = None
+        self._stop_requested = False
+        self._next_connect_ts: float = time.monotonic()
+        self._connect_timer: t.Optional[asyncio.TimerHandle] = None
+        self._connect_task: t.Optional[asyncio.Task] = None
+        self._transport: t.Optional[asyncio.Transport] = None
+        self._protocol: t.Optional[Protocol] = None
+        self._query_timer: t.Optional[asyncio.TimerHandle] = None
 
-        # Events that track if the device is connected and has received a "full" query
-        # result set. See `async_wait_available`.
-        self._is_connected_event = asyncio.Event()
-        self._first_query_done_event = asyncio.Event()
+        # Availability.
+        self._available_event = asyncio.Event()
 
     def __eq__(self, other: t.Any) -> bool:
         if isinstance(other, Device):
@@ -189,7 +201,7 @@ class Device:
         Is it unknown if the firmware generally supports writing more than one property
         in one transaction.
         """
-        if self._connection is None:
+        if self._transport is None:
             _LOGGER.warning(
                 f"{self.name}: Dropping property commit because device is not connected: {p}"
             )
@@ -197,208 +209,201 @@ class Device:
         root = aiobafi6_pb2.Root()
         root.root2.commit.properties.CopyFrom(p)
         _LOGGER.debug(f"{self.name}: Sending commit:\n{root}")
-        self._connection[1].write(wireutils.serialize(root))
+        self._transport.write(wireutils.serialize(root))
 
-    async def _async_run_loop(self) -> None:
-        """Run a loop that maintains a connection and monitors other loops.
+    def _sched_connect_or_signal_run_fut(self):
+        """Schedules a `_connect` invocation or signals the run future.
 
-        This function loops until `run_task` is cancelled. Every loop consists of the
-        following steps:
+        This function is called when a connection could not be established (error or
+        timeout), or the connection has been closed, or there is no connection
+        (`_start`). This is somewhat enforced by checking that various member variables
+        are None."""
+        assert self._connect_timer is None
+        assert self._connect_task is None
+        assert self._query_timer is None
+        assert self._transport is None
+        assert self._protocol is None
+        if self._stop_requested:
+            assert self._run_fut
+            if not self._run_fut.done():
+                _LOGGER.debug(f"{self.name}: Signalling run future.")
+                self._run_fut.set_result(None)
+        else:
+            _LOGGER.debug(f"{self.name}: Scheduling next connect invocation.")
+            self._connect_timer = asyncio.get_running_loop().call_at(
+                self._next_connect_ts,
+                self._connect,
+            )
 
-            - Connect to the device. If that fails, start over.
-            - Spawn `_async_read_loop` as a task.
-            - Spawn `_async_query_loop` as a task.
-            - Await the above 2 tasks, returning on the first exception.
+    def _connect(self) -> None:
+        self._connect_timer = None
+        self._next_connect_ts = (
+            time.monotonic() + _DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS
+        )
+        _LOGGER.debug(
+            f"{self.name}: Connecting to {self.service.ip_addresses[0]}:{self.service.port}."
+        )
+        connect_task = asyncio.create_task(
+            asyncio.get_running_loop().create_connection(
+                lambda: Protocol(self), self.service.ip_addresses[0], self.service.port
+            )
+        )
+        connect_task.add_done_callback(self._finish_connect)
+        asyncio.get_running_loop().call_later(
+            _DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS, lambda: connect_task.cancel()
+        )
+        self._connect_task = connect_task
 
-        Every time through the loop, the loop tasks are canceled and the connection
-        reset. This ensures that if a connection or loop probem happens, everything gets
-        torn down and re-started.
+    def _finish_connect(self, t: asyncio.Task) -> None:
+        assert self._connect_task is t
+        self._connect_task = None
+        try:
+            transport, protocol = t.result()
+            _LOGGER.debug(
+                f"{self.name}: Connected to {transport.get_extra_info('peername')}."
+            )
+            self._transport = transport
+            self._protocol = protocol
+            asyncio.get_running_loop().call_soon(self._query)
+        except (OSError, asyncio.CancelledError) as err:
+            _LOGGER.debug(f"{self.name}: Connection failed: {err}")
+            self._sched_connect_or_signal_run_fut()
+
+    def _handle_connection_lost(self, exc: t.Optional[Exception]) -> None:
+        _LOGGER.debug(f"{self.name}: Connection lost: {exc}")
+        if self._query_timer is not None:
+            self._query_timer.cancel()
+            self._query_timer = None
+        self._transport = None
+        self._protocol = None
+        self._sched_connect_or_signal_run_fut()
+
+    def _process_message(self, data: bytes) -> None:
+        root = aiobafi6_pb2.Root()
+        root.ParseFromString(data)
+        _LOGGER.debug(f"{self.name}: Received message: {root}")
+        # Discard unknown fields because `MergeFrom` treats them as repeated.
+        root.DiscardUnknownFields()  # type: ignore
+        for p in root.root2.query_result.properties:
+            self._properties.MergeFrom(p)
+        if not self._available_event.is_set():
+            self._maybe_make_available()
+        if self._available_event.is_set():
+            self._dispatch_callbacks()
+
+    def _maybe_make_available(self):
+        """Set the device as available if all required properties are set."""
+        for n in _PROPS_REQUIRED_FOR_AVAILABLE:
+            if not self._properties.HasField(n):
+                return
+        _LOGGER.debug(f"{self.name}: Setting device as available.")
+        self._available_event.set()
+
+    def _query(self) -> None:
+        self._query_timer = None
+        # The first `_query` of a connection is scheduled with `call_soon` and can't
+        # be cancelled, so it's possible (though unlikely) for `_transport` to be None.
+        # If that's the case, just bail out.
+        if self._transport is None:
+            return
+        root = aiobafi6_pb2.Root()
+        root.root2.query.property_query = aiobafi6_pb2.ALL
+        _LOGGER.debug(f"{self.name}: Sending query:\n{root}")
+        self._transport.write(wireutils.serialize(root))
+        if self._query_interval_seconds > 0:
+            self._query_timer = asyncio.get_running_loop().call_later(
+                self._query_interval_seconds, self._query
+            )
+
+    def async_run(self) -> asyncio.Future:
+        """Run the device asynchronously.
+
+        A running `Device` schedules functions on the run loop to maintain a connection
+        to the device, send periodic property queries, and service query commits.
+
+        Returns a future that will resolve when the device stops. Cancelling any future
+        returned by this function will stop the device.
         """
-        _LOGGER.debug(f"{self.name}: Starting run loop.")
-        next_connect_ts = time.monotonic() - _DELAY_BETWEEN_CONNECT_ATTEMPTS
-        read_task: t.Optional[asyncio.Task] = None
-        query_task: t.Optional[asyncio.Task] = None
-        try:
-            while True:
-                try:
-                    # Connect to the device, potentially after a delay to avoid banging
-                    # on an unresponsive of invalid address.
-                    delay = next_connect_ts - time.monotonic()
-                    if delay > 0:
-                        await asyncio.sleep(delay)
-                    next_connect_ts = time.monotonic() + _DELAY_BETWEEN_CONNECT_ATTEMPTS
-                    _LOGGER.debug(
-                        f"{self.name}: Connecting to {self.service.ip_addresses[0]}:{self.service.port}."
-                    )
-                    assert self._connection is None
-                    self._connection = await asyncio.wait_for(
-                        asyncio.open_connection(
-                            self.service.ip_addresses[0], self.service.port
-                        ),
-                        timeout=_DELAY_BETWEEN_CONNECT_ATTEMPTS,
-                    )
-                    _LOGGER.debug(f"{self.name}: Connected.")
-                    self._is_connected_event.set()
+        fut = asyncio.get_running_loop().create_future()
+        if self._run_fut is None:
+            self._start()
+        assert self._run_fut is not None
 
-                    # Spawn a reader and query task for the connection.
-                    assert read_task is None
-                    read_task = asyncio.create_task(self._async_read_loop())
-                    assert query_task is None
-                    query_task = asyncio.create_task(self._async_query_loop())
+        def resolve_fut(f: asyncio.Future):
+            if not fut.done():
+                fut.set_result(None)
 
-                    # Wait until both tasks are done, indicating the connection closed.
-                    await asyncio.wait(
-                        (read_task, query_task), return_when=asyncio.FIRST_EXCEPTION
-                    )
-                except asyncio.TimeoutError:
-                    _LOGGER.debug(f"{self.name}: Timeout in the run loop.")
-                except OSError as err:
-                    _LOGGER.debug(f"{self.name}: OS error in the run loop: {err}")
-                finally:
-                    _LOGGER.debug(
-                        f"{self.name}: Resetting run loop tasks and connection."
-                    )
-                    if read_task is not None:
-                        read_task.cancel()
-                        read_task = None
-                    if query_task is not None:
-                        query_task.cancel()
-                        query_task = None
-                    if self._connection is not None:
-                        self._connection[1].close()
-                        await self._connection[1].wait_closed()
-                        self._connection = None
-                        # Dispatch callbacks so clients become aware the device is no
-                        # longer connected.
-                        self._is_connected_event.clear()
-                        self._dispatch_callbacks()
-        except asyncio.CancelledError:
-            _LOGGER.debug(f"{self.name}: Run loop was cancelled.")
-        except Exception:
-            _LOGGER.exception(f"{self.name}: Unknown error in the run loop.")
-            raise
-        finally:
-            _LOGGER.debug(f"{self.name}: Exiting run loop.")
-            self._run_task = None
+        self._run_fut.add_done_callback(resolve_fut)
 
-    async def _async_read_loop(self) -> None:
-        """Run a loop that reads messages from the connection."""
-        _LOGGER.debug(f"{self.name}: Starting read loop.")
-        dispatch_task: t.Optional[asyncio.Task] = None
-        try:
-            while True:
-                if self._connection is None:
-                    break
-                # The wire format frames messages with 0xc0, so the first `readuntil`
-                # will return just that byte and the next will return the message with
-                # the terminating byte.
-                #
-                # The socket setup by asyncio takes a really long time to detect broken
-                # connections on Linux. So explicitly use `wait_for` with twice the
-                # query interval as the read timeout.
-                raw_buf = await asyncio.wait_for(
-                    self._connection[0].readuntil(b"\xc0"),
-                    self.query_interval_seconds * 2
-                    if self.query_interval_seconds > 0
-                    else None,
-                )
-                if len(raw_buf) == 1:
-                    continue
-                buf = wireutils.remove_emulation_prevention(raw_buf[:-1])
-                root = aiobafi6_pb2.Root()
-                root.ParseFromString(buf)
-                # Discard unknown fields because `MergeFrom` treats them as repeated.
-                root.DiscardUnknownFields()  # type: ignore
-                for p in root.root2.query_result.properties:
-                    self._properties.MergeFrom(p)
-                # A query can yield one or more result messages, so wait for the reader
-                # to idle to avoid a callback storm.
+        # Snapshot the current `_run_fut` in this function to ensure `fut` cannot cancel
+        # a future run invocation. This seems unlikely but if run loops can execute
+        # scheduled callbacks in any order then it can happen. Snapshotting `_run_fut`
+        # and doing an ID equality works because by capturing it here its lifetime is
+        # extended and any future `_run_fut` is going to have a different ID.
+        run_fut = self._run_fut
 
-                async def dispatch_after(delay: float) -> None:
-                    await asyncio.sleep(delay)
-                    # Allow futures waiting on `async_wait_available` to fire before
-                    # dispatching callbacks.
-                    if not self._first_query_done_event.is_set():
-                        self._first_query_done_event.set()
-                        await asyncio.sleep(0)
-                    self._dispatch_callbacks()
+        def stop_on_cancel(f: asyncio.Future):
+            if f.cancelled() and self._run_fut is run_fut:
+                self._stop()
 
-                if dispatch_task is not None:
-                    dispatch_task.cancel()
-                dispatch_task = asyncio.create_task(dispatch_after(0.2))
-        except asyncio.CancelledError:
-            _LOGGER.debug(f"{self.name}: Read loop was cancelled.")
-        except asyncio.TimeoutError:
-            _LOGGER.debug(f"{self.name}: Timeout in the read loop.")
-            raise
-        except OSError as err:
-            _LOGGER.debug(f"{self.name}: OS error in the read loop: {err}")
-            raise
-        except Exception:
-            _LOGGER.exception(f"{self.name}: Unknown error in the read loop.")
-            raise
-        finally:
-            _LOGGER.debug(f"{self.name}: Exiting read loop.")
+        fut.add_done_callback(stop_on_cancel)
+        return fut
 
-    async def _async_query_loop(self) -> None:
-        """Run a loop that sends a ALL properties query periodically."""
-        _LOGGER.debug(f"{self.name}: Starting query loop.")
-        one_query_sent = False
-        try:
-            while True:
-                if self._connection is None:
-                    break
-                if self.query_interval_seconds <= 0 and one_query_sent:
-                    await asyncio.sleep(1)
-                    continue
-                root = aiobafi6_pb2.Root()
-                root.root2.query.property_query = aiobafi6_pb2.ALL
-                _LOGGER.debug(f"{self.name}: Sending query:\n{root}")
-                self._connection[1].write(wireutils.serialize(root))
-                one_query_sent = True
-                await self._connection[1].drain()
-                await asyncio.sleep(self.query_interval_seconds)
-        except asyncio.CancelledError:
-            _LOGGER.debug(f"{self.name}: Query loop was cancelled.")
-        except asyncio.TimeoutError:
-            _LOGGER.debug(f"{self.name}: Timeout in the query loop.")
-            raise
-        except OSError as err:
-            _LOGGER.debug(f"{self.name}: OS error in the query loop: {err}")
-            raise
-        except Exception:
-            _LOGGER.exception(f"{self.name}: Unknown error in the query loop.")
-            raise
-        finally:
-            _LOGGER.debug(f"{self.name}: Exiting query loop.")
+    def _start(self):
+        """Start the device.
 
-    def run(self) -> asyncio.Task:
-        """Run the device.
-
-        Creates an asyncio task (if needed) that maintains a connection to the device
-        and services property pushes, periodic property queries, and property commits.
-        The task is stored in the `run_task` property and is returned to the caller.
+        This function schedules the device to connect on the next run loop iteration.
+        From there on, the device will continue scheduling functions to maintain the
+        connection, send periodic property queries, and service query commits.
         """
-        if self._run_task is not None:
-            return self._run_task
-        self._run_task = asyncio.create_task(self._async_run_loop())
-        return self._run_task
+        assert self._run_fut is None
+        assert not self._stop_requested
+        _LOGGER.debug(f"{self.name}: Starting.")
+        self._run_fut = asyncio.get_running_loop().create_future()
+        self._run_fut.add_done_callback(self._finish_run)
+        self._sched_connect_or_signal_run_fut()
 
-    @property
-    def run_task(self) -> t.Optional[asyncio.Task]:
-        return self._run_task
+    def _stop(self) -> None:
+        """Stop the device."""
+        if self._stop_requested:
+            return
+        _LOGGER.debug(f"{self.name}: Stopping.")
+        # This will cause `_sched_connect` to signal `_run_fut`.
+        self._stop_requested = True
+        # The device is not available anymore. Dispatch device callbacks so clients can
+        # react to the change.
+        self._available_event.clear()
+        self._dispatch_callbacks()
+        # If there is an active connection, close it.
+        if self._transport is not None:
+            self._transport.close()
+        # Otherwise, if the device is opening a connection, cancel that.
+        elif self._connect_task is not None:
+            self._connect_task.cancel()
+        # Otherwise, if `_connect` is scheduled, cancel that and call `_sched_connect`
+        # directly because nothing else will.
+        elif self._connect_timer is not None:
+            self._connect_timer.cancel()
+            self._sched_connect_or_signal_run_fut()
+
+    def _finish_run(self, f: asyncio.Future) -> None:
+        """Reset the run future to None.
+
+        This is the only completion callback for the run future and the only place where
+        it is reset to None, indicating that the device has fully stopped and could be
+        run again."""
+        _LOGGER.debug(f"{self.name}: Stopped.")
+        self._run_fut = None
+        self._stop_requested = False
 
     @property
     def available(self) -> bool:
-        """Return True when device is connected and an property query has finished."""
-        return (
-            self._is_connected_event.is_set() and self._first_query_done_event.is_set()
-        )
+        """Return True when device is running and has values for critical properties."""
+        return self._available_event.is_set()
 
     async def async_wait_available(self) -> None:
-        """t.Coroutine that waits for the device to be available."""
-        await self._is_connected_event.wait()
-        await self._first_query_done_event.wait()
+        """Asynchronously wait for the device to be available."""
+        await self._available_event.wait()
 
     # General
 
@@ -406,10 +411,10 @@ class Device:
     def name(self) -> str:
         if len(self._properties.name) > 0:
             return self._properties.name
+        if self.service.service_name is not None and len(self.service.service_name) > 0:
+            return self.service.service_name
         if len(self._properties.mac_address) > 0:
             return self._properties.mac_address
-        if self.service.device_name is not None and len(self.service.device_name) > 0:
-            return self.service.device_name
         return self.service.ip_addresses[0]
 
     @property
@@ -431,7 +436,7 @@ class Device:
 
     @property
     def has_fan(self) -> bool:
-        # TODO(!xxx): Support light-only devices.
+        # TODO(#1): Support light-only devices.
         return True
 
     @property
@@ -517,3 +522,43 @@ class Device:
     led_indicators_enable = ProtoProp[bool](writable=True)
     fan_beep_enable = ProtoProp[bool](writable=True)
     legacy_ir_remote_enable = ProtoProp[bool](writable=True)
+
+
+class Protocol(asyncio.Protocol):
+    """AsyncIO Protocol for BAF i6."""
+
+    __slots__ = ("_device", "_transport", "_buffer")
+
+    def __init__(self, device: Device):
+        self._device = device
+        self._transport: t.Optional[asyncio.Transport] = None
+        self._buffer = bytearray()
+
+    def connection_made(self, transport: asyncio.Transport) -> None:
+        self._transport = transport
+
+    def connection_lost(self, exc: t.Optional[Exception]) -> None:
+        self._device._handle_connection_lost(exc)
+        self._transport = None
+
+    def data_received(self, data: bytes) -> None:
+        assert self._transport is not None
+        if len(self._buffer) + len(data) > _RECV_BUFFER_LIMIT:
+            raise RuntimeError("Exceeded buffering limit.")
+        self._buffer.extend(data)
+        while len(self._buffer) > 1:
+            if self._buffer[0] != 0xC0:
+                _LOGGER.error("Receive buffer does not start with sync byte.")
+                self._transport.abort()
+                break
+            end = self._buffer.find(0xC0, 1)
+            if end == -1:
+                break
+            if end == 1:
+                _LOGGER.error("Empty message found in receive buffer.")
+                self._transport.abort()
+                break
+            self._device._process_message(
+                wireutils.remove_emulation_prevention(self._buffer[1:end])
+            )
+            self._buffer = self._buffer[end + 1 :]

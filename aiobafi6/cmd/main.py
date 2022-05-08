@@ -11,10 +11,10 @@ from google.protobuf import text_format
 from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncZeroconf
 
-from .. import wireutils
-from ..device import Device
-from ..discovery import PORT, Service, ServiceBrowser
-from ..proto import aiobafi6_pb2
+from aiobafi6 import wireutils
+from aiobafi6.device import Device
+from aiobafi6.discovery import PORT, Service, ServiceBrowser
+from aiobafi6.proto import aiobafi6_pb2
 
 ARGS = argparse.ArgumentParser(
     description="Command line tool for aiobaf6.\n\nThe tool supports a direct connection mode that is more powerful for debugging."
@@ -168,7 +168,7 @@ async def query_state(ip_addr: str, interval: int):
         Service(ip_addresses=[ip_addr], port=PORT), query_interval_seconds=interval
     )
     dev.add_callback(print_device)
-    await dev.run()
+    await dev.async_run()
 
 
 async def direct_set_property(ip_addr: str, property: str, value: int, dump: bool):
@@ -182,7 +182,7 @@ async def direct_set_property(ip_addr: str, property: str, value: int, dump: boo
     if dump:
         with open(f"dump-set-{property}-{value}.bin", "wb") as f:
             f.write(buf)
-    reader, writer = await asyncio.open_connection(ip_addr, PORT)
+    _, writer = await asyncio.open_connection(ip_addr, PORT)
     writer.write(buf)
     await writer.drain()
     writer.close()
@@ -192,14 +192,12 @@ async def direct_set_property(ip_addr: str, property: str, value: int, dump: boo
 async def set_property(ip_addr: str, property: str, value: int, dump: bool):
     print(f"setting {property} of {ip_addr} to {value}")
     dev = Device(Service(ip_addresses=[ip_addr], port=PORT), query_interval_seconds=0)
-    run_task = dev.run()
+    dev.async_run()
     await dev.async_wait_available()
     try:
         setattr(dev, property, value)
     except TypeError:
         setattr(dev, property, int(value))
-    run_task.cancel()
-    await run_task
 
 
 async def async_main():
@@ -210,7 +208,7 @@ async def async_main():
         try:
             ip_addr = ipaddress.ip_address(args.ip_addr)
         except ValueError:
-            print("invalid address ", args.ip_addr)
+            print(f"invalid address: {args.ip_addr}")
             return
     if args.discover:
         aiozc = AsyncZeroconf(ip_version=IPVersion.V4Only)
