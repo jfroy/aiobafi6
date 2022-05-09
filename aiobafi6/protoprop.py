@@ -54,7 +54,7 @@ class ProtoProp(t.Generic[T]):
             self._field_name = name
 
     def __get__(self, obj: t.Any, objtype: type[object]) -> t.Optional[T]:
-        v = t.cast(t.Optional[T], obj._maybe_prop(self._name))
+        v = t.cast(t.Optional[T], obj._maybe_property(self._name))
         if v is None:
             return v
         return self._from_proto(v)

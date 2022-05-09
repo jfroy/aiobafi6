@@ -123,9 +123,6 @@ class Device:
             string += f", Has Light: {self.has_light}"
         return string
 
-    def _maybe_prop(self, field: str) -> t.Optional[t.Any]:
-        return maybe_proto_field(t.cast(Message, self._properties), field)
-
     @property
     def service(self) -> Service:
         return copy.deepcopy(self._service)
@@ -154,6 +151,8 @@ class Device:
         p = aiobafi6_pb2.Properties()
         p.CopyFrom(self._properties)
         return p
+
+    # Client callbacks
 
     def add_callback(self, callback: t.Callable[[Device], None]) -> None:
         """Add a device update callback.
@@ -200,6 +199,11 @@ class Device:
             f"{self.name}: Dispatched {len(self._callbacks) + len(self._coro_callbacks)} client callbacks."
         )
 
+    # protoprop support
+
+    def _maybe_property(self, field: str) -> t.Optional[t.Any]:
+        return maybe_proto_field(t.cast(Message, self._properties), field)
+
     def _commit_property(self, p: aiobafi6_pb2.Properties) -> None:
         """Commit a property to the device.
 
@@ -218,6 +222,8 @@ class Device:
         root.root2.commit.properties.CopyFrom(p)
         _LOGGER.debug(f"{self.name}: Sending commit:\n{root}")
         self._transport.write(wireutils.serialize(root))
+
+    # Connection and query machinery
 
     def _sched_connect_or_signal_run_fut(self):
         """Schedules a `_connect` invocation or signals the run future.
@@ -405,6 +411,8 @@ class Device:
         _LOGGER.debug(f"{self.name}: Stopped.")
         self._run_fut = None
         self._stop_requested = False
+
+    # Availability
 
     @property
     def available(self) -> bool:

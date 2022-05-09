@@ -22,7 +22,7 @@ class FakeDevice:
     def __init__(self):
         self.properties = aiobafi6_pb2.Properties()
 
-    def _maybe_prop(self, field: str) -> t.Optional[t.Any]:
+    def _maybe_property(self, field: str) -> t.Optional[t.Any]:
         return maybe_proto_field(t.cast(Message, self.properties), field)
 
     def _commit_property(self, p: aiobafi6_pb2.Properties) -> None:
