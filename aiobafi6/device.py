@@ -5,6 +5,7 @@ Provides functionality to query and control BAF i6 protocol devices.
 from __future__ import annotations
 
 import asyncio
+import copy
 import inspect
 import logging
 import time
@@ -73,7 +74,7 @@ class Device:
                 f"Invalid service: must have at least one address and a port: {service}"
             )
 
-        self.service = service
+        self._service = copy.deepcopy(service)
         self._query_interval_seconds = query_interval_seconds
 
         # Permanent Properties protobuf into which query results are merged.
@@ -126,16 +127,20 @@ class Device:
         return maybe_proto_field(t.cast(Message, self._properties), field)
 
     @property
+    def service(self) -> Service:
+        return copy.deepcopy(self._service)
+
+    @property
     def properties_dict(self) -> dict[str, t.Any]:
         """Return a dict created by merging the device's service and properties."""
         d = {
-            "dns_sd_uuid": self.service.uuid,
-            "service_name": self.service.service_name,
-            "name": self.service.device_name,
-            "model": self.service.model,
-            "api_version": self.service.api_version,
-            "ip_addresses": self.service.ip_addresses,
-            "port": self.service.port,
+            "dns_sd_uuid": self._service.uuid,
+            "service_name": self._service.service_name,
+            "name": self._service.device_name,
+            "model": self._service.model,
+            "api_version": self._service.api_version,
+            "ip_addresses": self._service.ip_addresses,
+            "port": self._service.port,
         }
         d.update(
             json_format.MessageToDict(
@@ -244,11 +249,13 @@ class Device:
             time.monotonic() + _DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS
         )
         _LOGGER.debug(
-            f"{self.name}: Connecting to {self.service.ip_addresses[0]}:{self.service.port}."
+            f"{self.name}: Connecting to {self._service.ip_addresses[0]}:{self._service.port}."
         )
         connect_task = asyncio.create_task(
             self._loop.create_connection(
-                lambda: Protocol(self), self.service.ip_addresses[0], self.service.port
+                lambda: Protocol(self),
+                self._service.ip_addresses[0],
+                self._service.port,
             )
         )
         connect_task.add_done_callback(self._finish_connect)
@@ -414,17 +421,20 @@ class Device:
     def name(self) -> str:
         if len(self._properties.name) > 0:
             return self._properties.name
-        if self.service.service_name is not None and len(self.service.service_name) > 0:
-            return self.service.service_name
+        if (
+            self._service.service_name is not None
+            and len(self._service.service_name) > 0
+        ):
+            return self._service.service_name
         if len(self._properties.mac_address) > 0:
             return self._properties.mac_address
-        return self.service.ip_addresses[0]
+        return self._service.ip_addresses[0]
 
     @property
     def model(self) -> t.Optional[str]:
         if len(self._properties.model) > 0:
             return self._properties.model
-        return self.service.model
+        return self._service.model
 
     firmware_version = ProtoProp[t.Optional[str]]()
     mac_address = ProtoProp[t.Optional[str]]()
@@ -435,7 +445,7 @@ class Device:
     def dns_sd_uuid(self) -> t.Optional[str]:
         if len(self._properties.dns_sd_uuid) > 0:
             return self._properties.dns_sd_uuid
-        return self.service.uuid
+        return self._service.uuid
 
     @property
     def has_fan(self) -> bool:
@@ -514,7 +524,7 @@ class Device:
     def ip_address(self) -> str:
         if len(self._properties.ip_address) > 0:
             return self._properties.ip_address
-        return self.service.ip_addresses[0]
+        return self._service.ip_addresses[0]
 
     @property
     def wifi_ssid(self) -> t.Optional[str]:
