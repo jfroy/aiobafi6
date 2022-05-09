@@ -1,32 +1,23 @@
-"""Utilities for BAF i6 wire serialization and deserialization."""
+"""Utilities for BAF message encoding and decoding.
+
+BAF uses SLIP (Serial Line IP, https://datatracker.ietf.org/doc/html/rfc1055.html) to
+frame protocol buffer messages on a TCP/IP stream connection.
+"""
 from __future__ import annotations
 
-from .proto import aiobafi6_pb2
+from google.protobuf.message import Message
 
 
-def serialize(root: aiobafi6_pb2.Root) -> bytes:
-    """Serializes a message for transmission.
-
-    This will serialize the root proto message, apply emulation prevention sequences
-    and add the `0xc0` framing bytes.
-    """
-    buf = bytearray([0xc0])
-    buf.extend(add_emulation_prevention(root.SerializeToString()))
-    buf.append(0xc0)
+def serialize(message: Message) -> bytes:
+    """Serialize `message` to bytes and put it in a SLIP frame."""
+    buf = bytearray([0xC0])
+    buf.extend(add_emulation_prevention(message.SerializeToString()))
+    buf.append(0xC0)
     return buf
 
 
 def add_emulation_prevention(buf: bytes) -> bytes:
-    """Adds emulation prevention sequences.
-
-    The BAF i6 protocol frames its messages on a stream connection using a pair of 0xc0
-    bytes. In case a message payload contains 0xc0 bytes, all such bytes are replaced
-    with a so-called emulation prevention sequence (`0xdb 0xdc`). In case a message
-    payload contains this emulation prevention sequence itself, all `0xdb` bytes are
-    replaced with a separate emulation prevention sequence (`0xdb 0xdd`).
-
-    This function adds all such emulation prevention sequences.
-    """
+    """Add emulation prevention sequences (SLIP ESC)."""
     o = bytearray()
     for b in buf:
         if b == 0xC0:
@@ -39,16 +30,7 @@ def add_emulation_prevention(buf: bytes) -> bytes:
 
 
 def remove_emulation_prevention(buf: bytes) -> bytes:
-    """Removes emulation prevention sequences.
-
-    The BAF i6 protocol frames its messages on a stream connection using a pair of 0xc0
-    bytes. In case a message payload contains 0xc0 bytes, all such bytes are replaced
-    with a so-called emulation prevention sequence (`0xdb 0xdc`). In case a message
-    payload contains this emulation prevention sequence itself, all `0xdb` bytes are
-    replaced with a separate emulation prevention sequence (`0xdb 0xdd`).
-
-    This function removes all such emulation prevention sequences.
-    """
+    """Remove emulation prevention sequences (SLIP ESC)."""
     o = bytearray()
     eps = False
     for b in buf:
