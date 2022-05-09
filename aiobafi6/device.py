@@ -85,6 +85,9 @@ class Device:
         self._dispatch_coro_callback_tasks: t.Set[asyncio.Task] = set()
 
         # Connection and periodic queries.
+        self._loop = asyncio.get_running_loop()
+        if self._loop is None:
+            raise RuntimeError("no running loop")
         self._run_fut: t.Optional[asyncio.Future] = None
         self._stop_requested = False
         self._next_connect_ts: float = time.monotonic()
@@ -230,7 +233,7 @@ class Device:
                 self._run_fut.set_result(None)
         else:
             _LOGGER.debug(f"{self.name}: Scheduling next connect invocation.")
-            self._connect_timer = asyncio.get_running_loop().call_at(
+            self._connect_timer = self._loop.call_at(
                 self._next_connect_ts,
                 self._connect,
             )
@@ -244,12 +247,12 @@ class Device:
             f"{self.name}: Connecting to {self.service.ip_addresses[0]}:{self.service.port}."
         )
         connect_task = asyncio.create_task(
-            asyncio.get_running_loop().create_connection(
+            self._loop.create_connection(
                 lambda: Protocol(self), self.service.ip_addresses[0], self.service.port
             )
         )
         connect_task.add_done_callback(self._finish_connect)
-        asyncio.get_running_loop().call_later(
+        self._loop.call_later(
             _DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS, lambda: connect_task.cancel()
         )
         self._connect_task = connect_task
@@ -264,7 +267,7 @@ class Device:
             )
             self._transport = transport
             self._protocol = protocol
-            asyncio.get_running_loop().call_soon(self._query)
+            self._loop.call_soon(self._query)
         except (OSError, asyncio.CancelledError) as err:
             _LOGGER.debug(f"{self.name}: Connection failed: {err}")
             self._sched_connect_or_signal_run_fut()
@@ -311,7 +314,7 @@ class Device:
         _LOGGER.debug(f"{self.name}: Sending query:\n{root}")
         self._transport.write(wireutils.serialize(root))
         if self._query_interval_seconds > 0:
-            self._query_timer = asyncio.get_running_loop().call_later(
+            self._query_timer = self._loop.call_later(
                 self._query_interval_seconds, self._query
             )
 
@@ -324,7 +327,7 @@ class Device:
         Returns a future that will resolve when the device stops. Cancelling any future
         returned by this function will stop the device.
         """
-        fut = asyncio.get_running_loop().create_future()
+        fut = self._loop.create_future()
         if self._run_fut is None:
             self._start()
         assert self._run_fut is not None
@@ -359,7 +362,7 @@ class Device:
         assert self._run_fut is None
         assert not self._stop_requested
         _LOGGER.debug(f"{self.name}: Starting.")
-        self._run_fut = asyncio.get_running_loop().create_future()
+        self._run_fut = self._loop.create_future()
         self._run_fut.add_done_callback(self._finish_run)
         self._sched_connect_or_signal_run_fut()
 
