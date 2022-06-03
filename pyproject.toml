@@ -25,6 +25,7 @@ isort = "^5.10.1"
 poethepoet = "^0.13.1"
 pytest = "^7.1.2"
 pytest-asyncio = "^0.18"
+flake8 = "^4.0.1"
 
 [tool.poetry.scripts]
 aiobafi6 = 'aiobafi6.cmd.main:main'
