@@ -17,10 +17,14 @@ SCHEDULES: ProperyQuery
 SENSORS: ProperyQuery
 
 class Capabilities(_message.Message):
-    __slots__ = ["has_light"]
+    __slots__ = ["has_comfort1", "has_comfort3", "has_light"]
+    HAS_COMFORT1_FIELD_NUMBER: ClassVar[int]
+    HAS_COMFORT3_FIELD_NUMBER: ClassVar[int]
     HAS_LIGHT_FIELD_NUMBER: ClassVar[int]
+    has_comfort1: bool
+    has_comfort3: bool
     has_light: bool
-    def __init__(self, has_light: bool = ...) -> None: ...
+    def __init__(self, has_comfort1: bool = ..., has_comfort3: bool = ..., has_light: bool = ...) -> None: ...
 
 class Commit(_message.Message):
     __slots__ = ["properties"]

@@ -121,7 +121,11 @@ message FirmwareProperties {
   optional string mac_address = 4;
 }
 
-message Capabilities { optional bool has_light = 4; }
+message Capabilities {
+  optional bool has_comfort1 = 1;
+  optional bool has_comfort3 = 3;
+  optional bool has_light = 4;
+}
 
 message WifiProperties { optional string ssid = 1; }
 

@@ -464,6 +464,13 @@ class Device:
     def has_light(self) -> t.Optional[bool]:
         return maybe_proto_field(self._properties.capabilities, "has_light")
 
+    @property
+    def has_auto_comfort(self) -> bool:
+        # https://github.com/home-assistant/core/issues/72934
+        c1 = maybe_proto_field(self._properties.capabilities, "has_comfort1") or False
+        c3 = maybe_proto_field(self._properties.capabilities, "has_comfort3") or False
+        return c1 and c3
+
     # Fan
 
     fan_mode = ProtoProp[OffOnAuto](writable=True, from_proto=lambda v: OffOnAuto(v))
