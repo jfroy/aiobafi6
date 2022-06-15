@@ -163,21 +163,21 @@ class Device:
         if is_coroutine:
             if callback not in self._coro_callbacks:
                 self._coro_callbacks.append(callback)  # type: ignore
-            _LOGGER.debug(f"{self.name}: Added coroutine callback.")
+            _LOGGER.debug("%s: Added coroutine callback.", self.name)
             return
         if callback not in self._callbacks:
             self._callbacks.append(callback)
-        _LOGGER.debug(f"{self.name}: Added function callback.")
+        _LOGGER.debug("%s: Added function callback.", self.name)
 
     def remove_callback(self, callback) -> None:
         """Remove a device update callback."""
         if callback in self._coro_callbacks:
             self._coro_callbacks.remove(callback)
-            _LOGGER.debug(f"{self.name}: Removed coroutine callback.")
+            _LOGGER.debug("%s: Removed coroutine callback.", self.name)
             return
         if callback in self._callbacks:
             self._callbacks.remove(callback)
-            _LOGGER.debug(f"{self.name}: Removed function callback.")
+            _LOGGER.debug("%s: Removed function callback.", self.name)
             return
 
     def _dispatch_callbacks(self) -> None:
@@ -196,7 +196,9 @@ class Device:
             self._dispatch_coro_callback_tasks.add(t)
             t.add_done_callback(lambda t: self._dispatch_coro_callback_tasks.remove(t))
         _LOGGER.debug(
-            f"{self.name}: Dispatched {len(self._callbacks) + len(self._coro_callbacks)} client callbacks."
+            "%s: Dispatched %s client callbacks.",
+            self.name,
+            len(self._callbacks) + len(self._coro_callbacks),
         )
 
     # protoprop support
@@ -215,12 +217,14 @@ class Device:
         """
         if self._transport is None:
             _LOGGER.warning(
-                f"{self.name}: Dropping property commit because device is not connected: {p}"
+                "%s: Dropping property commit because device is not connected: %s",
+                self.name,
+                p,
             )
             return
         root = aiobafi6_pb2.Root()
         root.root2.commit.properties.CopyFrom(p)
-        _LOGGER.debug(f"{self.name}: Sending commit:\n{root}")
+        _LOGGER.debug("%s: Sending commit:\n%s", self.name, root)
         self._transport.write(wireutils.serialize(root))
 
     # Connection and query machinery
@@ -240,10 +244,10 @@ class Device:
         if self._stop_requested:
             assert self._run_fut
             if not self._run_fut.done():
-                _LOGGER.debug(f"{self.name}: Signalling run future.")
+                _LOGGER.debug("%s: Signalling run future.", self.name)
                 self._run_fut.set_result(None)
         else:
-            _LOGGER.debug(f"{self.name}: Scheduling next connect invocation.")
+            _LOGGER.debug("%s: Scheduling next connect invocation.", self.name)
             self._connect_timer = self._loop.call_at(
                 self._next_connect_ts,
                 self._connect,
@@ -255,7 +259,10 @@ class Device:
             time.monotonic() + _DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS
         )
         _LOGGER.debug(
-            f"{self.name}: Connecting to {self._service.ip_addresses[0]}:{self._service.port}."
+            "%s: Connecting to %s:%s.",
+            self.name,
+            self._service.ip_addresses[0],
+            self._service.port,
         )
         connect_task = asyncio.create_task(
             self._loop.create_connection(
@@ -276,17 +283,17 @@ class Device:
         try:
             transport, protocol = t.result()
             _LOGGER.debug(
-                f"{self.name}: Connected to {transport.get_extra_info('peername')}."
+                "%s: Connected to %s.", self.name, transport.get_extra_info("peername")
             )
             self._transport = transport
             self._protocol = protocol
             self._loop.call_soon(self._query)
         except (OSError, asyncio.CancelledError) as err:
-            _LOGGER.debug(f"{self.name}: Connection failed: {err}")
+            _LOGGER.debug("%s: Connection failed: %s", self.name, err)
             self._sched_connect_or_signal_run_fut()
 
     def _handle_connection_lost(self, exc: t.Optional[Exception]) -> None:
-        _LOGGER.debug(f"{self.name}: Connection lost: {exc}")
+        _LOGGER.debug("%s: Connection lost: %s", self.name, exc)
         if self._query_timer is not None:
             self._query_timer.cancel()
             self._query_timer = None
@@ -297,7 +304,7 @@ class Device:
     def _process_message(self, data: bytes) -> None:
         root = aiobafi6_pb2.Root()
         root.ParseFromString(data)
-        _LOGGER.debug(f"{self.name}: Received message: {root}")
+        _LOGGER.debug("%s: Received message: %s", self.name, root)
         # Discard unknown fields because `MergeFrom` treats them as repeated.
         root.DiscardUnknownFields()  # type: ignore
         for p in root.root2.query_result.properties:
@@ -312,7 +319,7 @@ class Device:
         for n in _PROPS_REQUIRED_FOR_AVAILABLE:
             if not self._properties.HasField(n):
                 return
-        _LOGGER.debug(f"{self.name}: Setting device as available.")
+        _LOGGER.debug("%s: Setting device as available.", self.name)
         self._available_event.set()
 
     def _query(self) -> None:
@@ -324,7 +331,7 @@ class Device:
             return
         root = aiobafi6_pb2.Root()
         root.root2.query.property_query = aiobafi6_pb2.ALL
-        _LOGGER.debug(f"{self.name}: Sending query:\n{root}")
+        _LOGGER.debug("%s: Sending query:\n%s", self.name, root)
         self._transport.write(wireutils.serialize(root))
         if self._query_interval_seconds > 0:
             self._query_timer = self._loop.call_later(
@@ -374,7 +381,7 @@ class Device:
         """
         assert self._run_fut is None
         assert not self._stop_requested
-        _LOGGER.debug(f"{self.name}: Starting.")
+        _LOGGER.debug("%s: Starting.", self.name)
         self._run_fut = self._loop.create_future()
         self._run_fut.add_done_callback(self._finish_run)
         self._sched_connect_or_signal_run_fut()
@@ -383,7 +390,7 @@ class Device:
         """Stop the device."""
         if self._stop_requested:
             return
-        _LOGGER.debug(f"{self.name}: Stopping.")
+        _LOGGER.debug("%s: Stopping.", self.name)
         # This will cause `_sched_connect` to signal `_run_fut`.
         self._stop_requested = True
         # The device is not available anymore. Dispatch device callbacks so clients can
@@ -408,7 +415,7 @@ class Device:
         This is the only completion callback for the run future and the only place where
         it is reset to None, indicating that the device has fully stopped and could be
         run again."""
-        _LOGGER.debug(f"{self.name}: Stopped.")
+        _LOGGER.debug("%s: Stopped.", self.name)
         self._run_fut = None
         self._stop_requested = False
 
