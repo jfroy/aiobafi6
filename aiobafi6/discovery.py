@@ -98,16 +98,16 @@ class ServiceBrowser:
     ) -> None:
         info = AsyncServiceInfo(service_type, service_name)
         if not await info.async_request(zeroconf, 3000):
-            _LOGGER.info(f"Failed to resolve service {service_name}.")
+            _LOGGER.info("Failed to resolve service %s.", service_name)
             return
         if info.properties is None:
-            _LOGGER.info(f"Service {service_name} has no properties.")
+            _LOGGER.info("Service %s has no properties.", service_name)
             return
         if len(info.addresses) == 0:
-            _LOGGER.info(f"Service {service_name} has no addresses.")
+            _LOGGER.info("Service %s has no addresses.", service_name)
             return
         if info.port is None:
-            _LOGGER.info(f"Service {service_name} has no port.")
+            _LOGGER.info("Service %s has no port.", service_name)
             return
         try:
             api_version = info.properties[b"api version"].decode("utf-8")
@@ -117,16 +117,29 @@ class ServiceBrowser:
             device_name = info.properties[b"name"].decode("utf-8")
         except (ValueError, KeyError) as err:
             _LOGGER.info(
-                f"Failed to parse service properties for {service_name}: {err}\n{info.properties}"
+                "Failed to parse service properties for %s: %s\n%s",
+                service_name,
+                err,
+                info.properties,
             )
             return
         if api_version_int < 4:
             _LOGGER.info(
-                f"Ignoring service {service_name} because api_version is < 4: {api_version}"
+                "Ignoring service %s because api_version is < 4: %s",
+                service_name,
+                api_version,
             )
             return
         _LOGGER.info(
-            f"Resolved service {service_name}: device_name=`{device_name}`, model=`{model}`, uuid={uuid}, api_version={api_version}, ip_addresses={info.parsed_scoped_addresses()}, port={info.port}"
+            "Resolved service %s: device_name=`%s`, model=`%s`, uuid=%s, "
+            " api_version=%s, ip_addresses=%s, port=%s",
+            service_name,
+            device_name,
+            model,
+            uuid,
+            api_version,
+            info.parsed_scoped_addresses(),
+            info.port,
         )
         service = Service(
             info.parsed_scoped_addresses(),
@@ -147,7 +160,7 @@ class ServiceBrowser:
         name: str,
         state_change: ServiceStateChange,
     ) -> None:
-        _LOGGER.info(f"Service {name} state changed: {state_change}")
+        _LOGGER.info("Service %s state changed: %s", name, state_change)
         if state_change == ServiceStateChange.Removed:
             for k in tuple(self._service_map.keys()):
                 if self._service_map[k].service_name == name:
