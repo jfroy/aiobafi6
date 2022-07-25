@@ -54,7 +54,7 @@ ARGS.add_argument(
     dest="interval",
     default=15,
     type=int,
-    help="property query interval",
+    help="property query interval in seconds",
 )
 ARGS.add_argument(
     "property",
