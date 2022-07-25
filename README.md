@@ -21,7 +21,7 @@ for debugging and interacting with the firmware. Run with `--help` for usage.
 The BAF i6 protocol uses
 [protocol buffers](https://developers.google.com/protocol-buffers) for message
 wire serialization. This library maintains a
-[single proto file](proto/aiobafi6.proto) with all known messages and contants.
+[single proto file](proto/aiobafi6.proto) with all known messages and constants.
 
 The generated Python client for this proto file is checked in the repo to avoid
 depending on the protocol buffer compiler for installation. Whenever the source
