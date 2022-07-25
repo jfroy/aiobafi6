@@ -1,4 +1,4 @@
-# pylint: disable=protected-access, missing-class-docstring, missing-function-docstring, invalid-name
+# pylint: disable=protected-access, missing-class-docstring, missing-function-docstring, invalid-name, too-few-public-methods
 
 """Tests for protoprop."""
 
@@ -7,6 +7,7 @@ import typing as t
 import pytest
 from google.protobuf.message import Message
 
+from .const import MIN_API_VERSION
 from .proto import aiobafi6_pb2
 from .protoprop import (
     ClosedIntervalValidator,
@@ -94,3 +95,12 @@ def test_closed_interval():
         d.speed = -1
     with pytest.raises(ValueError):
         d.speed = 1
+
+
+def test_min_api_version():
+    class D(FakeDevice):
+        prop1 = ProtoProp[int]()
+        prop2 = ProtoProp[int](min_api_version=5)
+
+    assert vars(D)["prop1"].min_api_version == MIN_API_VERSION
+    assert vars(D)["prop2"].min_api_version == 5

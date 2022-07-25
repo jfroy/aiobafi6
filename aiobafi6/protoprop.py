@@ -9,6 +9,7 @@ from enum import IntEnum
 
 from google.protobuf.message import Message
 
+from .const import MIN_API_VERSION
 from .proto import aiobafi6_pb2
 
 __all__ = (
@@ -26,7 +27,21 @@ TLT = t.TypeVar("TLT", bound="SupportsLessThan")
 
 
 class ProtoProp(t.Generic[T]):
-    """Descriptor for `Device` properties backed by a protobuf field."""
+    """Descriptor for `Device` properties backed by a protobuf field.
+
+    The descriptor has a public `min_api_version` that clients aware of ProtoProp can
+    use to check if a particular property is supported by a given `Device` based on its
+    `api_version` property.
+    """
+
+    __slots__ = (
+        "_writable",
+        "_field_name",
+        "_to_proto",
+        "_from_proto",
+        "_name",
+        "min_api_version",
+    )
 
     def __init__(
         self,
@@ -34,11 +49,13 @@ class ProtoProp(t.Generic[T]):
         field_name: t.Optional[str] = None,
         to_proto: t.Optional[t.Callable[[T], t.Any]] = None,
         from_proto: t.Optional[t.Callable[[t.Any], t.Optional[T]]] = None,
+        min_api_version: int = MIN_API_VERSION,
     ):
         self._name = None
 
         self._writable = writable
         self._field_name = field_name
+        self.min_api_version = min_api_version
 
         def ident(val: t.Any) -> T:
             return t.cast(T, val)

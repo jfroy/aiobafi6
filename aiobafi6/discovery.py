@@ -13,6 +13,8 @@ from typing import Callable, Dict, Optional, Sequence, Set, Tuple
 from zeroconf import ServiceStateChange, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 
+from .const import MIN_API_VERSION
+
 __all__ = ("PORT", "ZEROCONF_SERVICE_TYPE", "Service", "ServiceBrowser")
 
 _LOGGER = logging.getLogger(__name__)
@@ -123,10 +125,11 @@ class ServiceBrowser:
                 info.properties,
             )
             return
-        if api_version_int < 4:
+        if api_version_int < MIN_API_VERSION:
             _LOGGER.info(
-                "Ignoring service %s because api_version is < 4: %s",
+                "Ignoring service %s because api_version is < %d: %s",
                 service_name,
+                MIN_API_VERSION,
                 api_version,
             )
             return
