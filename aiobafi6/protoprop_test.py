@@ -1,4 +1,7 @@
+# pylint: disable=protected-access, missing-class-docstring, missing-function-docstring, invalid-name
+
 """Tests for protoprop."""
+
 import typing as t
 
 import pytest
@@ -20,27 +23,32 @@ class FakeDevice:
     """A class that implements the interface expected by ProtoProp."""
 
     def __init__(self):
-        self.properties = aiobafi6_pb2.Properties()
+        self.properties = aiobafi6_pb2.Properties()  # pylint: disable=no-member
 
     def _maybe_property(self, field: str) -> t.Optional[t.Any]:
         return maybe_proto_field(t.cast(Message, self.properties), field)
 
-    def _commit_property(self, p: aiobafi6_pb2.Properties) -> None:
+    def _commit_property(
+        self, p: aiobafi6_pb2.Properties  # pylint: disable=no-member
+    ) -> None:
         self.properties.MergeFrom(p)
 
 
 def test_off_on_auto():
     class D(FakeDevice):
         fan_mode = ProtoProp[OffOnAuto](
-            writable=True, from_proto=lambda v: OffOnAuto(v)
+            writable=True,
+            from_proto=lambda v: OffOnAuto(v),  # pylint: disable=unnecessary-lambda
         )
 
     d = D()
-    d.properties.fan_mode = aiobafi6_pb2.AUTO
+    d.properties.fan_mode = aiobafi6_pb2.AUTO  # pylint: disable=no-member
     assert d.fan_mode == OffOnAuto.AUTO
     d.fan_mode = OffOnAuto.AUTO
     with pytest.raises(ValueError):
-        d.properties.fan_mode = t.cast(aiobafi6_pb2.OffOnAuto, 3)
+        d.properties.fan_mode = t.cast(
+            aiobafi6_pb2.OffOnAuto, 3  # pylint: disable=no-member
+        )
 
 
 def test_temperature():

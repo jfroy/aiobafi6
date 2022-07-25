@@ -1,3 +1,5 @@
+# pylint: disable=protected-access, missing-class-docstring, missing-function-docstring, invalid-name
+
 """Tests for device."""
 
 import pytest

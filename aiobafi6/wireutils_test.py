@@ -1,4 +1,7 @@
+# pylint: disable=protected-access, missing-class-docstring, missing-function-docstring, invalid-name, line-too-long
+
 """Tests for wireutils."""
+
 from . import wireutils
 
 

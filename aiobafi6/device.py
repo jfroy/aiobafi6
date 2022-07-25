@@ -78,7 +78,7 @@ class Device:
         self._query_interval_seconds = query_interval_seconds
 
         # Permanent Properties protobuf into which query results are merged.
-        self._properties = aiobafi6_pb2.Properties()
+        self._properties = aiobafi6_pb2.Properties()  # pylint: disable=no-member
 
         # Device update callbacks.
         self._callbacks: list[t.Callable[[Device], None]] = []
@@ -124,13 +124,13 @@ class Device:
         return string
 
     @property
-    def service(self) -> Service:
+    def service(self) -> Service:  # pylint: disable=missing-function-docstring
         return copy.deepcopy(self._service)
 
     @property
     def properties_dict(self) -> dict[str, t.Any]:
         """Return a dict created by merging the device's service and properties."""
-        d = {
+        propsd = {
             "dns_sd_uuid": self._service.uuid,
             "service_name": self._service.service_name,
             "name": self._service.device_name,
@@ -139,18 +139,20 @@ class Device:
             "ip_addresses": self._service.ip_addresses,
             "port": self._service.port,
         }
-        d.update(
+        propsd.update(
             json_format.MessageToDict(
                 t.cast(Message, self._properties), preserving_proto_field_name=True
             )
         )
-        return d
+        return propsd
 
     @property
-    def properties_proto(self) -> aiobafi6_pb2.Properties:
-        p = aiobafi6_pb2.Properties()
-        p.CopyFrom(self._properties)
-        return p
+    def properties_proto(  # pylint: disable=missing-function-docstring
+        self,
+    ) -> aiobafi6_pb2.Properties:
+        props = aiobafi6_pb2.Properties()  # pylint: disable=no-member
+        props.CopyFrom(self._properties)
+        return props
 
     # Client callbacks
 
@@ -189,12 +191,12 @@ class Device:
         for callback in self._callbacks:
             try:
                 callback(self)
-            except Exception:
+            except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Exception raised during callback.")
         for coro in self._coro_callbacks:
-            t = asyncio.create_task(coro(self))  # type: ignore
-            self._dispatch_coro_callback_tasks.add(t)
-            t.add_done_callback(lambda t: self._dispatch_coro_callback_tasks.remove(t))
+            task = asyncio.create_task(coro(self))  # type: ignore
+            self._dispatch_coro_callback_tasks.add(task)
+            task.add_done_callback(self._dispatch_coro_callback_tasks.remove)
         _LOGGER.debug(
             "%s: Dispatched %s client callbacks.",
             self.name,
@@ -206,7 +208,7 @@ class Device:
     def _maybe_property(self, field: str) -> t.Optional[t.Any]:
         return maybe_proto_field(t.cast(Message, self._properties), field)
 
-    def _commit_property(self, p: aiobafi6_pb2.Properties) -> None:
+    def _commit_property(self, prop: aiobafi6_pb2.Properties) -> None:
         """Commit a property to the device.
 
         This does not update the properties reflected by the `Device` object. That will
@@ -219,11 +221,11 @@ class Device:
             _LOGGER.warning(
                 "%s: Dropping property commit because device is not connected: %s",
                 self.name,
-                p,
+                prop,
             )
             return
-        root = aiobafi6_pb2.Root()
-        root.root2.commit.properties.CopyFrom(p)
+        root = aiobafi6_pb2.Root()  # pylint: disable=no-member
+        root.root2.commit.properties.CopyFrom(prop)
         _LOGGER.debug("%s: Sending commit:\n%s", self.name, root)
         self._transport.write(wireutils.serialize(root))
 
@@ -273,15 +275,15 @@ class Device:
         )
         connect_task.add_done_callback(self._finish_connect)
         self._loop.call_later(
-            _DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS, lambda: connect_task.cancel()
+            _DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS, connect_task.cancel
         )
         self._connect_task = connect_task
 
-    def _finish_connect(self, t: asyncio.Task) -> None:
-        assert self._connect_task is t
+    def _finish_connect(self, task: asyncio.Task) -> None:
+        assert self._connect_task is task
         self._connect_task = None
         try:
-            transport, protocol = t.result()
+            transport, protocol = task.result()
             _LOGGER.debug(
                 "%s: Connected to %s.", self.name, transport.get_extra_info("peername")
             )
@@ -302,13 +304,13 @@ class Device:
         self._sched_connect_or_signal_run_fut()
 
     def _process_message(self, data: bytes) -> None:
-        root = aiobafi6_pb2.Root()
+        root = aiobafi6_pb2.Root()  # pylint: disable=no-member
         root.ParseFromString(data)
         _LOGGER.debug("%s: Received message: %s", self.name, root)
         # Discard unknown fields because `MergeFrom` treats them as repeated.
         root.DiscardUnknownFields()  # type: ignore
-        for p in root.root2.query_result.properties:
-            self._properties.MergeFrom(p)
+        for prop in root.root2.query_result.properties:
+            self._properties.MergeFrom(prop)
         if not self._available_event.is_set():
             self._maybe_make_available()
         if self._available_event.is_set():
@@ -316,8 +318,8 @@ class Device:
 
     def _maybe_make_available(self):
         """Set the device as available if all required properties are set."""
-        for n in _PROPS_REQUIRED_FOR_AVAILABLE:
-            if not self._properties.HasField(n):
+        for pname in _PROPS_REQUIRED_FOR_AVAILABLE:
+            if not self._properties.HasField(pname):
                 return
         _LOGGER.debug("%s: Setting device as available.", self.name)
         self._available_event.set()
@@ -329,8 +331,8 @@ class Device:
         # If that's the case, just bail out.
         if self._transport is None:
             return
-        root = aiobafi6_pb2.Root()
-        root.root2.query.property_query = aiobafi6_pb2.ALL
+        root = aiobafi6_pb2.Root()  # pylint: disable=no-member
+        root.root2.query.property_query = aiobafi6_pb2.ALL  # pylint: disable=no-member
         _LOGGER.debug("%s: Sending query:\n%s", self.name, root)
         self._transport.write(wireutils.serialize(root))
         if self._query_interval_seconds > 0:
@@ -352,7 +354,7 @@ class Device:
             self._start()
         assert self._run_fut is not None
 
-        def resolve_fut(f: asyncio.Future):
+        def resolve_fut(_: asyncio.Future):
             if not fut.done():
                 fut.set_result(None)
 
@@ -365,8 +367,8 @@ class Device:
         # extended and any future `_run_fut` is going to have a different ID.
         run_fut = self._run_fut
 
-        def stop_on_cancel(f: asyncio.Future):
-            if f.cancelled() and self._run_fut is run_fut:
+        def stop_on_cancel(_: asyncio.Future):
+            if fut.cancelled() and self._run_fut is run_fut:
                 self._stop()
 
         fut.add_done_callback(stop_on_cancel)
@@ -409,7 +411,7 @@ class Device:
             self._connect_timer.cancel()
             self._sched_connect_or_signal_run_fut()
 
-    def _finish_run(self, f: asyncio.Future) -> None:
+    def _finish_run(self, _: asyncio.Future) -> None:
         """Reset the run future to None.
 
         This is the only completion callback for the run future and the only place where
@@ -433,7 +435,7 @@ class Device:
     # General
 
     @property
-    def name(self) -> str:
+    def name(self) -> str:  # pylint: disable=missing-function-docstring
         if len(self._properties.name) > 0:
             return self._properties.name
         if (
@@ -446,7 +448,7 @@ class Device:
         return self._service.ip_addresses[0]
 
     @property
-    def model(self) -> t.Optional[str]:
+    def model(self) -> t.Optional[str]:  # pylint: disable=missing-function-docstring
         if len(self._properties.model) > 0:
             return self._properties.model
         return self._service.model
@@ -457,29 +459,34 @@ class Device:
     # API
 
     @property
-    def dns_sd_uuid(self) -> t.Optional[str]:
+    def dns_sd_uuid(  # pylint: disable=missing-function-docstring
+        self,
+    ) -> t.Optional[str]:
         if len(self._properties.dns_sd_uuid) > 0:
             return self._properties.dns_sd_uuid
         return self._service.uuid
 
     @property
-    def has_fan(self) -> bool:
+    def has_fan(self) -> bool:  # pylint: disable=missing-function-docstring
         # TODO(#1): Support light-only devices.
         return True
 
     @property
-    def has_light(self) -> t.Optional[bool]:
+    def has_light(  # pylint: disable=missing-function-docstring
+        self,
+    ) -> t.Optional[bool]:
         return maybe_proto_field(self._properties.capabilities, "has_light")
 
     @property
-    def has_auto_comfort(self) -> bool:
+    def has_auto_comfort(self) -> bool:  # pylint: disable=missing-function-docstring
         # https://github.com/home-assistant/core/issues/72934
-        c1 = maybe_proto_field(self._properties.capabilities, "has_comfort1") or False
-        c3 = maybe_proto_field(self._properties.capabilities, "has_comfort3") or False
-        return c1 and c3
+        hc1 = maybe_proto_field(self._properties.capabilities, "has_comfort1") or False
+        hc3 = maybe_proto_field(self._properties.capabilities, "has_comfort3") or False
+        return hc1 and hc3
 
     # Fan
 
+    # pylint: disable=unnecessary-lambda
     fan_mode = ProtoProp[OffOnAuto](writable=True, from_proto=lambda v: OffOnAuto(v))
     reverse_enable = ProtoProp[bool](writable=True)
     speed_percent = ProtoProp[int]()
@@ -517,6 +524,7 @@ class Device:
 
     # Light
 
+    # pylint: disable=unnecessary-lambda
     light_mode = ProtoProp[OffOnAuto](writable=True, from_proto=lambda v: OffOnAuto(v))
     light_brightness_percent = ProtoProp[int](writable=True)
     light_brightness_level = ProtoProp[int](writable=True)
@@ -543,13 +551,15 @@ class Device:
     # Connectivity
 
     @property
-    def ip_address(self) -> str:
+    def ip_address(self) -> str:  # pylint: disable=missing-function-docstring
         if len(self._properties.ip_address) > 0:
             return self._properties.ip_address
         return self._service.ip_addresses[0]
 
     @property
-    def wifi_ssid(self) -> t.Optional[str]:
+    def wifi_ssid(  # pylint: disable=missing-function-docstring
+        self,
+    ) -> t.Optional[str]:
         return maybe_proto_field(self._properties.wifi, "ssid")
 
     # More
@@ -573,7 +583,7 @@ class Protocol(asyncio.Protocol):
         self._transport = transport
 
     def connection_lost(self, exc: t.Optional[Exception]) -> None:
-        self._device._handle_connection_lost(exc)
+        self._device._handle_connection_lost(exc)  # pylint: disable=protected-access
         self._transport = None
 
     def data_received(self, data: bytes) -> None:
@@ -593,7 +603,7 @@ class Protocol(asyncio.Protocol):
                 _LOGGER.error("Empty message found in receive buffer.")
                 self._transport.abort()
                 break
-            self._device._process_message(
+            self._device._process_message(  # pylint: disable=protected-access
                 wireutils.remove_emulation_prevention(self._buffer[1:end])
             )
             self._buffer = self._buffer[end + 1 :]

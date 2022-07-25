@@ -69,7 +69,7 @@ class ServiceBrowser:
     `Service` objects whenever the browser detects a change in service availability.
     """
 
-    def __init__(self, zc: Zeroconf, callback: Callable):
+    def __init__(self, zconf: Zeroconf, callback: Callable):
         self._callback = callback
 
         # Map device UUID to Service object. When a device is renamed, the service
@@ -81,15 +81,15 @@ class ServiceBrowser:
         self._tasks: Set[asyncio.Task] = set()
 
         self._asb = AsyncServiceBrowser(
-            zc, ["_api._tcp.local."], handlers=[self._on_state_change]
+            zconf, ["_api._tcp.local."], handlers=[self._on_state_change]
         )
 
     def _dispatch_callback(self) -> None:
         services = tuple(s for s in self._service_map.values())
         if inspect.iscoroutinefunction(self._callback):
-            t = asyncio.create_task(self._callback(services))
-            self._tasks.add(t)
-            t.add_done_callback(lambda t: self._tasks.remove(t))
+            task = asyncio.create_task(self._callback(services))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.remove)
         else:
             self._callback(services)
 
@@ -167,8 +167,8 @@ class ServiceBrowser:
                     del self._service_map[k]
             self._dispatch_callback()
         else:
-            t = asyncio.create_task(
+            task = asyncio.create_task(
                 self._async_resolve_service(zeroconf, service_type, name)
             )
-            self._tasks.add(t)
-            t.add_done_callback(lambda t: self._tasks.remove(t))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.remove)

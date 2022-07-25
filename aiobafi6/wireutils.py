@@ -18,34 +18,34 @@ def serialize(message: Message) -> bytes:
 
 def add_emulation_prevention(buf: bytes) -> bytes:
     """Add emulation prevention sequences (SLIP ESC)."""
-    o = bytearray()
-    for b in buf:
-        if b == 0xC0:
-            o.extend((0xDB, 0xDC))
-        elif b == 0xDB:
-            o.extend((0xDB, 0xDD))
+    obuf = bytearray()
+    for val in buf:
+        if val == 0xC0:
+            obuf.extend((0xDB, 0xDC))
+        elif val == 0xDB:
+            obuf.extend((0xDB, 0xDD))
         else:
-            o.append(b)
-    return bytes(o)
+            obuf.append(val)
+    return bytes(obuf)
 
 
 def remove_emulation_prevention(buf: bytes) -> bytes:
     """Remove emulation prevention sequences (SLIP ESC)."""
-    o = bytearray()
+    obuf = bytearray()
     eps = False
-    for b in buf:
-        if b == 0xDB:
+    for val in buf:
+        if val == 0xDB:
             eps = True
         elif eps:
-            if b == 0xDC:
-                o.append(0xC0)
-            elif b == 0xDD:
-                o.append(0xDB)
+            if val == 0xDC:
+                obuf.append(0xC0)
+            elif val == 0xDD:
+                obuf.append(0xDB)
             else:
                 raise ValueError("invalid emulation prevention sequence")
             eps = False
         else:
-            o.append(b)
+            obuf.append(val)
     if eps:
         raise ValueError("truncated emulation prevention sequence")
-    return bytes(o)
+    return bytes(obuf)

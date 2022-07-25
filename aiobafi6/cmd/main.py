@@ -17,7 +17,7 @@ from aiobafi6.discovery import PORT, Service, ServiceBrowser
 from aiobafi6.proto import aiobafi6_pb2
 
 ARGS = argparse.ArgumentParser(
-    description="Command line tool for aiobaf6.\n\nThe tool supports a direct connection mode that is more powerful for debugging."
+    description="Command line tool for aiobaf6.\n\nThe tool supports a direct connection mode that is more powerful for debugging."  # pylint: disable=line-too-long
 )
 ARGS.add_argument(
     "-s",
@@ -96,25 +96,27 @@ LOGGING = {
 
 
 async def query_loop(writer: asyncio.StreamWriter, interval: int):
+    """Run direct query loop."""
     print(f"starting query loop: interval {interval}s")
-    root = aiobafi6_pb2.Root()
-    root.root2.query.property_query = aiobafi6_pb2.ALL
+    root = aiobafi6_pb2.Root()  # pylint: disable=no-member
+    root.root2.query.property_query = aiobafi6_pb2.ALL  # pylint: disable=no-member
     writer.write(wireutils.serialize(root))
     while True:
         await asyncio.sleep(interval)
         print("sending refresh query")
-        root = aiobafi6_pb2.Root()
-        root.root2.query.property_query = aiobafi6_pb2.ALL
+        root = aiobafi6_pb2.Root()  # pylint: disable=no-member
+        root.root2.query.property_query = aiobafi6_pb2.ALL  # pylint: disable=no-member
         writer.write(wireutils.serialize(root))
 
 
 async def direct_query_state(ip_addr: str, dump: bool, interval: int):
+    """Query state directly."""
     print(f"directly querying all state from {ip_addr}")
     reader, writer = await asyncio.open_connection(ip_addr, PORT)
     _ = asyncio.create_task(query_loop(writer, interval))
     i = 0
-    previous = aiobafi6_pb2.Properties()
-    latest = aiobafi6_pb2.Properties()
+    previous = aiobafi6_pb2.Properties()  # pylint: disable=no-member
+    latest = aiobafi6_pb2.Properties()  # pylint: disable=no-member
     unknown = {}
     previous_sorted_unknown = []
     while True:
@@ -126,43 +128,45 @@ async def direct_query_state(ip_addr: str, dump: bool, interval: int):
             continue
         buf = wireutils.remove_emulation_prevention(raw_buf[:-1])
         if dump:
-            with open(f"dump-query-{i}.bin", "wb") as f:
-                f.write(buf)
+            with open(f"dump-query-{i}.bin", "wb") as writer:
+                writer.write(buf)
             i += 1
-        root = aiobafi6_pb2.Root()
+        root = aiobafi6_pb2.Root()  # pylint: disable=no-member
         root.ParseFromString(buf)
-        for p in root.root2.query_result.properties:
-            for f in p.UnknownFields():  # type: ignore
-                unknown[f.field_number] = f.data
+        for prop in root.root2.query_result.properties:
+            for field in prop.UnknownFields():  # type: ignore
+                unknown[field.field_number] = field.data
         root.DiscardUnknownFields()  # type: ignore
-        for p in root.root2.query_result.properties:
-            p.ClearField("local_datetime")
-            p.ClearField("utc_datetime")
-            p.stats.ClearField("uptime_minutes")
-            latest.MergeFrom(p)
-        d = "".join(
+        for prop in root.root2.query_result.properties:
+            prop.ClearField("local_datetime")
+            prop.ClearField("utc_datetime")
+            prop.stats.ClearField("uptime_minutes")
+            latest.MergeFrom(prop)
+        diff = "".join(
             difflib.unified_diff(
                 text_format.MessageToString(previous).splitlines(keepends=True),
                 text_format.MessageToString(latest).splitlines(keepends=True),
             )
         )
-        if len(d) > 0:
-            print(d)
+        if len(diff) > 0:
+            print(diff)
         previous.CopyFrom(latest)
         sorted_unknown = [f"{k}: {str(unknown[k])}\n" for k in sorted(unknown.keys())]
-        d = "".join(difflib.unified_diff(previous_sorted_unknown, sorted_unknown))
-        if len(d) > 0:
-            print(d)
+        diff = "".join(difflib.unified_diff(previous_sorted_unknown, sorted_unknown))
+        if len(diff) > 0:
+            print(diff)
         previous_sorted_unknown = sorted_unknown
 
 
 def print_device(dev: Device):
+    """Print a Device."""
     print("<-- callback")
     print(dev.properties_proto)
     print("callback -->")
 
 
 async def query_state(ip_addr: str, interval: int):
+    """Query state via a Device."""
     print(f"querying all state from {ip_addr}: interval {interval}s")
     dev = Device(
         Service(ip_addresses=[ip_addr], port=PORT), query_interval_seconds=interval
@@ -171,17 +175,18 @@ async def query_state(ip_addr: str, interval: int):
     await dev.async_run()
 
 
-async def direct_set_property(ip_addr: str, property: str, value: int, dump: bool):
-    print(f"directly setting {property} of {ip_addr} to {value}")
-    root = aiobafi6_pb2.Root()
+async def direct_set_property(ip_addr: str, prop: str, value: int, dump: bool):
+    """Set a property directly."""
+    print(f"directly setting {prop} of {ip_addr} to {value}")
+    root = aiobafi6_pb2.Root()  # pylint: disable=no-member
     try:
-        setattr(root.root2.commit.properties, property, value)
+        setattr(root.root2.commit.properties, prop, value)
     except TypeError:
-        setattr(root.root2.commit.properties, property, int(value))
+        setattr(root.root2.commit.properties, prop, int(value))
     buf = wireutils.serialize(root)
     if dump:
-        with open(f"dump-set-{property}-{value}.bin", "wb") as f:
-            f.write(buf)
+        with open(f"dump-set-{prop}-{value}.bin", "wb") as writer:
+            writer.write(buf)
     _, writer = await asyncio.open_connection(ip_addr, PORT)
     writer.write(buf)
     await writer.drain()
@@ -189,18 +194,20 @@ async def direct_set_property(ip_addr: str, property: str, value: int, dump: boo
     await writer.wait_closed()
 
 
-async def set_property(ip_addr: str, property: str, value: int, dump: bool):
-    print(f"setting {property} of {ip_addr} to {value}")
+async def set_property(ip_addr: str, prop: str, value: int):
+    """Set a property via a Device."""
+    print(f"setting {prop} of {ip_addr} to {value}")
     dev = Device(Service(ip_addresses=[ip_addr], port=PORT), query_interval_seconds=0)
     dev.async_run()
     await dev.async_wait_available()
     try:
-        setattr(dev, property, value)
+        setattr(dev, prop, value)
     except TypeError:
-        setattr(dev, property, int(value))
+        setattr(dev, prop, int(value))
 
 
 async def async_main():
+    """async_main"""
     args = ARGS.parse_args()
     logging.config.dictConfig(LOGGING)
     ip_addr = None
@@ -225,7 +232,7 @@ async def async_main():
                 str(ip_addr), args.property, args.value, dump=args.dump
             )
         else:
-            await set_property(str(ip_addr), args.property, args.value, dump=args.dump)
+            await set_property(str(ip_addr), args.property, args.value)
     elif args.direct:
         await direct_query_state(str(ip_addr), dump=args.dump, interval=args.interval)
     else:
@@ -233,6 +240,7 @@ async def async_main():
 
 
 def main():
+    """main"""
     try:
         asyncio.run(async_main())
     except KeyboardInterrupt:

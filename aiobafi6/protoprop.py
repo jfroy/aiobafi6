@@ -35,11 +35,13 @@ class ProtoProp(t.Generic[T]):
         to_proto: t.Optional[t.Callable[[T], t.Any]] = None,
         from_proto: t.Optional[t.Callable[[t.Any], t.Optional[T]]] = None,
     ):
+        self._name = None
+
         self._writable = writable
         self._field_name = field_name
 
-        def ident(x: t.Any) -> T:
-            return t.cast(T, x)
+        def ident(val: t.Any) -> T:
+            return t.cast(T, val)
 
         if to_proto is None:
             to_proto = ident
@@ -54,17 +56,17 @@ class ProtoProp(t.Generic[T]):
             self._field_name = name
 
     def __get__(self, obj: t.Any, objtype: type[object]) -> t.Optional[T]:
-        v = t.cast(t.Optional[T], obj._maybe_property(self._name))
-        if v is None:
-            return v
-        return self._from_proto(v)
+        val = t.cast(t.Optional[T], obj._maybe_property(self._name))
+        if val is None:
+            return val
+        return self._from_proto(val)
 
     def __set__(self, obj: t.Any, value: T):
         if not self._writable:
             raise AttributeError(f"can't set attribute {self._name}")
-        p = aiobafi6_pb2.Properties()
-        setattr(p, t.cast(str, self._field_name), self._to_proto(value))
-        obj._commit_property(p)
+        props = aiobafi6_pb2.Properties()  # pylint: disable=no-member
+        setattr(props, t.cast(str, self._field_name), self._to_proto(value))
+        obj._commit_property(props)
 
 
 class OffOnAuto(IntEnum):
@@ -81,6 +83,7 @@ def maybe_proto_field(message: Message, field: str) -> t.Optional[t.Any]:
 
 
 class ClosedIntervalValidator(t.Generic[TLT]):
+    # pylint: disable=invalid-name
     """Callable that checks if an input value is within the closed interval [a, b]."""
 
     __slots__ = ("a", "b")
@@ -89,28 +92,31 @@ class ClosedIntervalValidator(t.Generic[TLT]):
         self.a = a
         self.b = b
 
-    def __call__(self, x: TLT) -> TLT:
-        if x < self.a:
+    def __call__(self, val: TLT) -> TLT:
+        if val < self.a:
             raise ValueError(f"value must be inside [{self.a}, {self.b}]")
-        if self.b < x:
+        if self.b < val:
             raise ValueError(f"value must be inside [{self.a}, {self.b}]")
-        return x
+        return val
 
 
-def to_proto_temperature(x: float) -> int:
-    return int(x * 100.0)
+def to_proto_temperature(val: float) -> int:
+    """Return val multiplied by 100 as an int."""
+    return int(val * 100.0)
 
 
-def from_proto_temperature(x: int) -> float:
-    return float(x) / 100.0
+def from_proto_temperature(val: int) -> float:
+    """Return val divided by 100 as a float."""
+    return float(val) / 100.0
 
 
-def from_proto_humidity(x: int) -> t.Optional[int]:
-    if x < 0 or x > 100:
+def from_proto_humidity(val: int) -> t.Optional[int]:
+    """Return val if it is in the [0, 100] interval, otherwise None."""
+    if val < 0 or val > 100:
         return None
-    return x
+    return val
 
 
-class SupportsLessThan(t.Protocol):
+class SupportsLessThan(t.Protocol):  # pylint: disable=missing-class-docstring
     def __lt__(self, __other: t.Any) -> bool:
         ...
