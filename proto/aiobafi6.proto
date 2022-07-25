@@ -48,7 +48,7 @@ message Properties {
   optional string uuid9 = 9;
   optional string dns_sd_uuid = 10; // uuid used for _api._tcp dns service
   optional string api_endpoint = 11;
-  optional string api_version = 13; // speculative, but seems to match dns
+  optional string api_version = 13;
 
   optional FirmwareProperties firmware = 16;
   optional Capabilities capabilities = 17;
@@ -79,6 +79,11 @@ message Properties {
   optional int32 target_rpm = 63;
   optional int32 current_rpm = 64;
 
+  // Resets after about 4 minutes 30 seconds.
+  // Speculatively placed in the fan category as it is returned with other
+  // fan properties by the firmware. Arguably could be named "fast presence".
+  optional bool fan_presence_detected = 66; // `api_version` >= 5
+
   // Light
   optional OffOnAuto light_mode = 68;
   optional int32 light_brightness_percent = 69; // 0-100
@@ -95,7 +100,14 @@ message Properties {
   optional int32 light_warmest_color_temperature = 78;
   optional int32 light_coolest_color_temperature = 79;
 
+  // Resets after about 9 minutes 30 seconds.
+  // Speculatively placed in the light category as it is returned with other
+  // light properties by the firmware. Arguably could be named "slow presence".
+  // And given its field ID, it's odd that it's not in the sensor category.
+  optional bool light_presence_detected = 85; // `api_version` >= 5
+
   // Sensors
+
   optional int32 temperature = 86; // divide by 100.0, in ºC
   optional int32 humidity = 87;    // percent
 
