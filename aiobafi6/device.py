@@ -467,6 +467,14 @@ class Device:
         return self._service.uuid
 
     @property
+    def api_version(  # pylint: disable=missing-function-docstring
+        self,
+    ) -> t.Optional[str]:
+        if len(self._properties.api_version) > 0:
+            return self._properties.api_version
+        return self._service.api_version
+
+    @property
     def has_fan(self) -> bool:  # pylint: disable=missing-function-docstring
         # TODO(#1): Support light-only devices.
         return True
