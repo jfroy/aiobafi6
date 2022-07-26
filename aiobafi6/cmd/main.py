@@ -6,6 +6,7 @@ import asyncio
 import difflib
 import ipaddress
 import logging.config
+import typing as t
 
 from google.protobuf import text_format
 from zeroconf import IPVersion
@@ -117,7 +118,7 @@ async def direct_query_state(ip_addr: str, dump: bool, interval: int):
     i = 0
     previous = aiobafi6_pb2.Properties()  # pylint: disable=no-member
     latest = aiobafi6_pb2.Properties()  # pylint: disable=no-member
-    unknown = {}
+    unknown: dict[str, t.Any] = {}
     previous_sorted_unknown = []
     while True:
         # The wire format frames protobuf messages with 0xc0, so the first `readuntil`
@@ -135,7 +136,11 @@ async def direct_query_state(ip_addr: str, dump: bool, interval: int):
         root.ParseFromString(buf)
         for prop in root.root2.query_result.properties:
             for field in prop.UnknownFields():  # type: ignore
-                unknown[field.field_number] = field.data
+                unknown[str(field.field_number)] = field.data
+            for field in prop.capabilities.UnknownFields():  # type: ignore
+                unknown["capabilities." + str(field.field_number)] = field.data
+            for field in prop.stats.UnknownFields():  # type: ignore
+                unknown["stats." + str(field.field_number)] = field.data
         root.DiscardUnknownFields()  # type: ignore
         for prop in root.root2.query_result.properties:
             prop.ClearField("local_datetime")
