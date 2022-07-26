@@ -81,8 +81,8 @@ message Properties {
 
   // Resets after about 4 minutes 30 seconds.
   // Speculatively placed in the fan category as it is returned with other
-  // fan properties by the firmware. Arguably could be named "fast presence".
-  optional bool fan_presence_detected = 66; // `api_version` >= 5
+  // fan properties by the firmware. Arguably could be named "fast occupancy".
+  optional bool fan_occupancy_detected = 66; // `api_version` >= 5
 
   // Light
   optional OffOnAuto light_mode = 68;
@@ -102,9 +102,9 @@ message Properties {
 
   // Resets after about 9 minutes 30 seconds.
   // Speculatively placed in the light category as it is returned with other
-  // light properties by the firmware. Arguably could be named "slow presence".
+  // light properties by the firmware. Arguably could be named "slow occupancy".
   // And given its field ID, it's odd that it's not in the sensor category.
-  optional bool light_presence_detected = 85; // `api_version` >= 5
+  optional bool light_occupancy_detected = 85; // `api_version` >= 5
 
   // Sensors
 

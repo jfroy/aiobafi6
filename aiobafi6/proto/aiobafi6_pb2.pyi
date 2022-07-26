@@ -43,7 +43,7 @@ class FirmwareProperties(_message.Message):
     def __init__(self, firmware_version: Optional[str] = ..., bootloader_version: Optional[str] = ..., mac_address: Optional[str] = ...) -> None: ...
 
 class Properties(_message.Message):
-    __slots__ = ["api_endpoint", "api_version", "auto_comfort_enable", "capabilities", "comfort_heat_assist_enable", "comfort_heat_assist_reverse_enable", "comfort_heat_assist_speed", "comfort_ideal_temperature", "comfort_max_speed", "comfort_min_speed", "current_rpm", "dns_sd_uuid", "eco_enable", "fan_beep_enable", "fan_mode", "fan_presence_detected", "firmware", "firmware_version", "humidity", "ip_address", "led_indicators_enable", "legacy_ir_remote_enable", "light_auto_motion_timeout", "light_brightness_level", "light_brightness_percent", "light_color_temperature", "light_coolest_color_temperature", "light_dim_to_warm_enable", "light_mode", "light_presence_detected", "light_return_to_auto_enable", "light_return_to_auto_timeout", "light_warmest_color_temperature", "local_datetime", "mac_address", "model", "motion_sense_enable", "motion_sense_timeout", "name", "remote_firmware", "return_to_auto_enable", "return_to_auto_timeout", "reverse_enable", "speed", "speed_percent", "stats", "target_rpm", "temperature", "utc_datetime", "uuid9", "whoosh_enable", "wifi"]
+    __slots__ = ["api_endpoint", "api_version", "auto_comfort_enable", "capabilities", "comfort_heat_assist_enable", "comfort_heat_assist_reverse_enable", "comfort_heat_assist_speed", "comfort_ideal_temperature", "comfort_max_speed", "comfort_min_speed", "current_rpm", "dns_sd_uuid", "eco_enable", "fan_beep_enable", "fan_mode", "fan_occupancy_detected", "firmware", "firmware_version", "humidity", "ip_address", "led_indicators_enable", "legacy_ir_remote_enable", "light_auto_motion_timeout", "light_brightness_level", "light_brightness_percent", "light_color_temperature", "light_coolest_color_temperature", "light_dim_to_warm_enable", "light_mode", "light_occupancy_detected", "light_return_to_auto_enable", "light_return_to_auto_timeout", "light_warmest_color_temperature", "local_datetime", "mac_address", "model", "motion_sense_enable", "motion_sense_timeout", "name", "remote_firmware", "return_to_auto_enable", "return_to_auto_timeout", "reverse_enable", "speed", "speed_percent", "stats", "target_rpm", "temperature", "utc_datetime", "uuid9", "whoosh_enable", "wifi"]
     API_ENDPOINT_FIELD_NUMBER: ClassVar[int]
     API_VERSION_FIELD_NUMBER: ClassVar[int]
     AUTO_COMFORT_ENABLE_FIELD_NUMBER: ClassVar[int]
@@ -59,7 +59,7 @@ class Properties(_message.Message):
     ECO_ENABLE_FIELD_NUMBER: ClassVar[int]
     FAN_BEEP_ENABLE_FIELD_NUMBER: ClassVar[int]
     FAN_MODE_FIELD_NUMBER: ClassVar[int]
-    FAN_PRESENCE_DETECTED_FIELD_NUMBER: ClassVar[int]
+    FAN_OCCUPANCY_DETECTED_FIELD_NUMBER: ClassVar[int]
     FIRMWARE_FIELD_NUMBER: ClassVar[int]
     FIRMWARE_VERSION_FIELD_NUMBER: ClassVar[int]
     HUMIDITY_FIELD_NUMBER: ClassVar[int]
@@ -73,7 +73,7 @@ class Properties(_message.Message):
     LIGHT_COOLEST_COLOR_TEMPERATURE_FIELD_NUMBER: ClassVar[int]
     LIGHT_DIM_TO_WARM_ENABLE_FIELD_NUMBER: ClassVar[int]
     LIGHT_MODE_FIELD_NUMBER: ClassVar[int]
-    LIGHT_PRESENCE_DETECTED_FIELD_NUMBER: ClassVar[int]
+    LIGHT_OCCUPANCY_DETECTED_FIELD_NUMBER: ClassVar[int]
     LIGHT_RETURN_TO_AUTO_ENABLE_FIELD_NUMBER: ClassVar[int]
     LIGHT_RETURN_TO_AUTO_TIMEOUT_FIELD_NUMBER: ClassVar[int]
     LIGHT_WARMEST_COLOR_TEMPERATURE_FIELD_NUMBER: ClassVar[int]
@@ -111,7 +111,7 @@ class Properties(_message.Message):
     eco_enable: bool
     fan_beep_enable: bool
     fan_mode: OffOnAuto
-    fan_presence_detected: bool
+    fan_occupancy_detected: bool
     firmware: FirmwareProperties
     firmware_version: str
     humidity: int
@@ -125,7 +125,7 @@ class Properties(_message.Message):
     light_coolest_color_temperature: int
     light_dim_to_warm_enable: bool
     light_mode: OffOnAuto
-    light_presence_detected: bool
+    light_occupancy_detected: bool
     light_return_to_auto_enable: bool
     light_return_to_auto_timeout: int
     light_warmest_color_temperature: int
@@ -148,7 +148,7 @@ class Properties(_message.Message):
     uuid9: str
     whoosh_enable: bool
     wifi: WifiProperties
-    def __init__(self, name: Optional[str] = ..., model: Optional[str] = ..., local_datetime: Optional[str] = ..., utc_datetime: Optional[str] = ..., firmware_version: Optional[str] = ..., mac_address: Optional[str] = ..., uuid9: Optional[str] = ..., dns_sd_uuid: Optional[str] = ..., api_endpoint: Optional[str] = ..., api_version: Optional[str] = ..., firmware: Optional[Union[FirmwareProperties, Mapping]] = ..., capabilities: Optional[Union[Capabilities, Mapping]] = ..., fan_mode: Optional[Union[OffOnAuto, str]] = ..., reverse_enable: bool = ..., speed_percent: Optional[int] = ..., speed: Optional[int] = ..., whoosh_enable: bool = ..., eco_enable: bool = ..., auto_comfort_enable: bool = ..., comfort_ideal_temperature: Optional[int] = ..., comfort_heat_assist_enable: bool = ..., comfort_heat_assist_speed: Optional[int] = ..., comfort_heat_assist_reverse_enable: bool = ..., comfort_min_speed: Optional[int] = ..., comfort_max_speed: Optional[int] = ..., motion_sense_enable: bool = ..., motion_sense_timeout: Optional[int] = ..., return_to_auto_enable: bool = ..., return_to_auto_timeout: Optional[int] = ..., target_rpm: Optional[int] = ..., current_rpm: Optional[int] = ..., fan_presence_detected: bool = ..., light_mode: Optional[Union[OffOnAuto, str]] = ..., light_brightness_percent: Optional[int] = ..., light_brightness_level: Optional[int] = ..., light_color_temperature: Optional[int] = ..., light_dim_to_warm_enable: bool = ..., light_auto_motion_timeout: Optional[int] = ..., light_return_to_auto_enable: bool = ..., light_return_to_auto_timeout: Optional[int] = ..., light_warmest_color_temperature: Optional[int] = ..., light_coolest_color_temperature: Optional[int] = ..., light_presence_detected: bool = ..., temperature: Optional[int] = ..., humidity: Optional[int] = ..., ip_address: Optional[str] = ..., wifi: Optional[Union[WifiProperties, Mapping]] = ..., led_indicators_enable: bool = ..., fan_beep_enable: bool = ..., legacy_ir_remote_enable: bool = ..., remote_firmware: Optional[Union[FirmwareProperties, Mapping]] = ..., stats: Optional[Union[Stats, Mapping]] = ...) -> None: ...
+    def __init__(self, name: Optional[str] = ..., model: Optional[str] = ..., local_datetime: Optional[str] = ..., utc_datetime: Optional[str] = ..., firmware_version: Optional[str] = ..., mac_address: Optional[str] = ..., uuid9: Optional[str] = ..., dns_sd_uuid: Optional[str] = ..., api_endpoint: Optional[str] = ..., api_version: Optional[str] = ..., firmware: Optional[Union[FirmwareProperties, Mapping]] = ..., capabilities: Optional[Union[Capabilities, Mapping]] = ..., fan_mode: Optional[Union[OffOnAuto, str]] = ..., reverse_enable: bool = ..., speed_percent: Optional[int] = ..., speed: Optional[int] = ..., whoosh_enable: bool = ..., eco_enable: bool = ..., auto_comfort_enable: bool = ..., comfort_ideal_temperature: Optional[int] = ..., comfort_heat_assist_enable: bool = ..., comfort_heat_assist_speed: Optional[int] = ..., comfort_heat_assist_reverse_enable: bool = ..., comfort_min_speed: Optional[int] = ..., comfort_max_speed: Optional[int] = ..., motion_sense_enable: bool = ..., motion_sense_timeout: Optional[int] = ..., return_to_auto_enable: bool = ..., return_to_auto_timeout: Optional[int] = ..., target_rpm: Optional[int] = ..., current_rpm: Optional[int] = ..., fan_occupancy_detected: bool = ..., light_mode: Optional[Union[OffOnAuto, str]] = ..., light_brightness_percent: Optional[int] = ..., light_brightness_level: Optional[int] = ..., light_color_temperature: Optional[int] = ..., light_dim_to_warm_enable: bool = ..., light_auto_motion_timeout: Optional[int] = ..., light_return_to_auto_enable: bool = ..., light_return_to_auto_timeout: Optional[int] = ..., light_warmest_color_temperature: Optional[int] = ..., light_coolest_color_temperature: Optional[int] = ..., light_occupancy_detected: bool = ..., temperature: Optional[int] = ..., humidity: Optional[int] = ..., ip_address: Optional[str] = ..., wifi: Optional[Union[WifiProperties, Mapping]] = ..., led_indicators_enable: bool = ..., fan_beep_enable: bool = ..., legacy_ir_remote_enable: bool = ..., remote_firmware: Optional[Union[FirmwareProperties, Mapping]] = ..., stats: Optional[Union[Stats, Mapping]] = ...) -> None: ...
 
 class Query(_message.Message):
     __slots__ = ["property_query"]

@@ -522,7 +522,7 @@ class Device:
     target_rpm = ProtoProp[int]()
     current_rpm = ProtoProp[int]()
 
-    fan_presence_detected = ProtoProp[bool](min_api_version=5)
+    fan_occupancy_detected = ProtoProp[bool](min_api_version=5)
 
     # Light
 
@@ -542,7 +542,7 @@ class Device:
     light_warmest_color_temperature = ProtoProp[int]()
     light_coolest_color_temperature = ProtoProp[int]()
 
-    light_presence_detected = ProtoProp[bool](min_api_version=5)
+    light_occupancy_detected = ProtoProp[bool](min_api_version=5)
 
     # Sensors
 
