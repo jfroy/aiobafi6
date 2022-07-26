@@ -143,11 +143,4 @@ message WifiProperties { optional string ssid = 1; }
 
 message Schedule {}
 
-message Stats {
-  optional int32 uptime_minutes = 1;
-  optional int32 unknown2 = 2;
-  optional int32 unknown3 = 3;
-  optional int32 unknown4 = 4;
-  optional int32 unknown5 = 5;
-  optional int32 unknown6 = 6;
-}
+message Stats { optional int32 uptime_minutes = 1; }

@@ -185,20 +185,10 @@ class Schedule(_message.Message):
     def __init__(self) -> None: ...
 
 class Stats(_message.Message):
-    __slots__ = ["unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "uptime_minutes"]
-    UNKNOWN2_FIELD_NUMBER: ClassVar[int]
-    UNKNOWN3_FIELD_NUMBER: ClassVar[int]
-    UNKNOWN4_FIELD_NUMBER: ClassVar[int]
-    UNKNOWN5_FIELD_NUMBER: ClassVar[int]
-    UNKNOWN6_FIELD_NUMBER: ClassVar[int]
+    __slots__ = ["uptime_minutes"]
     UPTIME_MINUTES_FIELD_NUMBER: ClassVar[int]
-    unknown2: int
-    unknown3: int
-    unknown4: int
-    unknown5: int
-    unknown6: int
     uptime_minutes: int
-    def __init__(self, uptime_minutes: Optional[int] = ..., unknown2: Optional[int] = ..., unknown3: Optional[int] = ..., unknown4: Optional[int] = ..., unknown5: Optional[int] = ..., unknown6: Optional[int] = ...) -> None: ...
+    def __init__(self, uptime_minutes: Optional[int] = ...) -> None: ...
 
 class WifiProperties(_message.Message):
     __slots__ = ["ssid"]
