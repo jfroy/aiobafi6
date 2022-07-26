@@ -15,6 +15,7 @@ from google.protobuf import json_format
 from google.protobuf.message import Message
 
 from . import wireutils
+from .const import OCCUPANCY_MIN_API_VERSION
 from .discovery import Service
 from .proto import aiobafi6_pb2
 from .protoprop import (
@@ -492,6 +493,16 @@ class Device:
         hc3 = maybe_proto_field(self._properties.capabilities, "has_comfort3") or False
         return hc1 and hc3
 
+    @property
+    def has_occupancy(self) -> bool:  # pylint: disable=missing-function-docstring
+        try:
+            api_version = int(self.api_version or 0)
+        except ValueError:
+            api_version = 0
+        # There is probably a capability flag for this but it is unknown. Speculatively,
+        # a device that supports auto comfort is assumed to supports occupancy.
+        return api_version >= OCCUPANCY_MIN_API_VERSION and self.has_auto_comfort
+
     # Fan
 
     # pylint: disable=unnecessary-lambda
@@ -530,7 +541,7 @@ class Device:
     target_rpm = ProtoProp[int]()
     current_rpm = ProtoProp[int]()
 
-    fan_occupancy_detected = ProtoProp[bool](min_api_version=5)
+    fan_occupancy_detected = ProtoProp[bool](min_api_version=OCCUPANCY_MIN_API_VERSION)
 
     # Light
 
@@ -550,7 +561,9 @@ class Device:
     light_warmest_color_temperature = ProtoProp[int]()
     light_coolest_color_temperature = ProtoProp[int]()
 
-    light_occupancy_detected = ProtoProp[bool](min_api_version=5)
+    light_occupancy_detected = ProtoProp[bool](
+        min_api_version=OCCUPANCY_MIN_API_VERSION
+    )
 
     # Sensors
 
