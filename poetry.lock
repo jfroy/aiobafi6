@@ -216,7 +216,7 @@ testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "poethepoet"
-version = "0.17.0"
+version = "0.17.1"
 description = "A task runner that works well with poetry."
 category = "dev"
 optional = false
@@ -361,7 +361,7 @@ ifaddr = ">=0.1.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "e3e95f5db9679a3577caf59f5a29dbeddb89b4e55f5aad6f091d42e600ce8c39"
+content-hash = "7c633109e105aad401100e5af6d647404719f11690da16e6b4d9e5482e7d3b64"
 
 [metadata.files]
 astroid = [
@@ -472,8 +472,8 @@ pluggy = [
     {file = "pluggy-1.0.0.tar.gz", hash = "sha256:4224373bacce55f955a878bf9cfa763c1e360858e330072059e10bad68531159"},
 ]
 poethepoet = [
-    {file = "poethepoet-0.17.0-py3-none-any.whl", hash = "sha256:08f57f41d6d22d2bcea61f7eeb3c02b8dbb89ce8d704a8b0b37ceb27909cb3c6"},
-    {file = "poethepoet-0.17.0.tar.gz", hash = "sha256:b5425c34daa4128cb09062315b2bd2e7f8bfa3b6397259c5b9ab9deb886427d0"},
+    {file = "poethepoet-0.17.1-py3-none-any.whl", hash = "sha256:e54213659f3f2c6ed71fbfbe865ca14d095bb945c82a839df4df5e7811f5653d"},
+    {file = "poethepoet-0.17.1.tar.gz", hash = "sha256:0429990ab4faa92d96cd7b7d66e9cf5bb5598adbe0ee9af8482f9d10e28a6290"},
 ]
 protobuf = [
     {file = "protobuf-4.21.12-cp310-abi3-win32.whl", hash = "sha256:b135410244ebe777db80298297a97fbb4c862c881b4403b71bac9d4107d61fd1"},
