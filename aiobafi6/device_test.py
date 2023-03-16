@@ -6,6 +6,7 @@ import pytest
 
 from .device import Device
 from .discovery import PORT, Service
+from .proto import aiobafi6_pb2
 
 
 @pytest.mark.asyncio
@@ -60,3 +61,66 @@ async def test_has_auto_comfort():
     d._properties.capabilities.has_comfort1 = True
     d._properties.capabilities.has_comfort3 = True
     assert d.has_auto_comfort
+
+
+@pytest.mark.asyncio
+async def test_no_redundant_callback():
+    d = Device(Service(("127.0.0.1",), PORT))
+    d._available_event.set()
+    called = False
+
+    def callback(_: Device):
+        nonlocal called
+        called = True
+
+    d.add_callback(callback)
+    root = aiobafi6_pb2.Root()  # pylint: disable=no-member
+    prop = root.root2.query_result.properties.add()
+    prop.speed = 1
+    buf = root.SerializeToString()
+    d._process_message(buf)
+    assert d._properties.speed == 1
+    assert called
+    called = False
+    d._process_message(buf)
+    assert not called
+
+
+@pytest.mark.asyncio
+async def test_ignore_volatile_props():
+    d = Device(Service(("127.0.0.1",), PORT), ignore_volatile_props=True)
+    d._available_event.set()
+    called = False
+
+    def callback(_: Device):
+        nonlocal called
+        called = True
+
+    d.add_callback(callback)
+    root = aiobafi6_pb2.Root()  # pylint: disable=no-member
+    prop = root.root2.query_result.properties.add()
+    prop.current_rpm = 42
+    buf = root.SerializeToString()
+    d._process_message(buf)
+    assert d._properties.current_rpm == 42
+    assert not called
+
+
+@pytest.mark.asyncio
+async def test_no_ignore_volatile_props():
+    d = Device(Service(("127.0.0.1",), PORT), ignore_volatile_props=False)
+    d._available_event.set()
+    called = False
+
+    def callback(_: Device):
+        nonlocal called
+        called = True
+
+    d.add_callback(callback)
+    root = aiobafi6_pb2.Root()  # pylint: disable=no-member
+    prop = root.root2.query_result.properties.add()
+    prop.current_rpm = 42
+    buf = root.SerializeToString()
+    d._process_message(buf)
+    assert d._properties.current_rpm == 42
+    assert called

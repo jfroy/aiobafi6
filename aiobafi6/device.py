@@ -28,7 +28,17 @@ from .protoprop import (
     to_proto_temperature,
 )
 
-__all__ = ("Device",)
+__all__ = (
+    "VOLATILE_ROPERTIES",
+    "Device",
+)
+
+VOLATILE_ROPERTIES = (
+    "current_rpm",
+    "local_datetime",
+    "stats",
+    "utc_datetime",
+)
 
 _LOGGER = logging.getLogger(__name__)
 _DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS = 30
@@ -43,6 +53,12 @@ _PROPS_REQUIRED_FOR_AVAILABLE = (
     "capabilities",
     "ip_address",
 )
+
+
+def _clear_volatile_props(props: aiobafi6_pb2.Properties):
+    """Clear volatile properties from `props`."""
+    for field in VOLATILE_ROPERTIES:
+        props.ClearField(field)
 
 
 class Device:
@@ -63,12 +79,20 @@ class Device:
     properties queries, pushes, and commits.
 
     To disable periodic properties queries, set `query_interval_seconds` to 0.
+
+    Clients can register callbacks to be notified when one or more device properties
+    have changed. Callbacks are suppressed when no actual changes are observed (i.e.
+    the device is in a steady state). Callbacks are also be suppressed when only
+    so-called volatile properties have changed, such as fan RPM, device uptime or the
+    device's internal clock. This can be disabled by setting `ignore_volatile_props` to
+    false. These properties are still queried and available to read from the device.
     """
 
     def __init__(
         self,
         service: Service,
         query_interval_seconds: int = 60,
+        ignore_volatile_props: bool = True,
     ):
         if len(service.ip_addresses) == 0 or service.port == 0:
             raise ValueError(
@@ -77,6 +101,7 @@ class Device:
 
         self._service = copy.deepcopy(service)
         self._query_interval_seconds = query_interval_seconds
+        self._ignore_volatile_props = ignore_volatile_props
 
         # Permanent Properties protobuf into which query results are merged.
         self._properties = aiobafi6_pb2.Properties()  # pylint: disable=no-member
@@ -310,11 +335,16 @@ class Device:
         _LOGGER.debug("%s: Received message: %s", self.name, root)
         # Discard unknown fields because `MergeFrom` treats them as repeated.
         root.DiscardUnknownFields()  # type: ignore
+        previous = self.properties_proto
         for prop in root.root2.query_result.properties:
             self._properties.MergeFrom(prop)
         if not self._available_event.is_set():
             self._maybe_make_available()
-        if self._available_event.is_set():
+        current = self.properties_proto
+        if self._ignore_volatile_props:
+            _clear_volatile_props(previous)
+            _clear_volatile_props(current)
+        if self._available_event.is_set() and current != previous:
             self._dispatch_callbacks()
 
     def _maybe_make_available(self):
