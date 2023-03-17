@@ -29,11 +29,11 @@ from .protoprop import (
 )
 
 __all__ = (
-    "VOLATILE_ROPERTIES",
+    "VOLATILE_PROPERTIES",
     "Device",
 )
 
-VOLATILE_ROPERTIES = (
+VOLATILE_PROPERTIES = (
     "current_rpm",
     "local_datetime",
     "stats",
@@ -57,7 +57,7 @@ _PROPS_REQUIRED_FOR_AVAILABLE = (
 
 def _clear_volatile_props(props: aiobafi6_pb2.Properties):
     """Clear volatile properties from `props`."""
-    for field in VOLATILE_ROPERTIES:
+    for field in VOLATILE_PROPERTIES:
         props.ClearField(field)
 
 
