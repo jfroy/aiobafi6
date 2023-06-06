@@ -2,6 +2,11 @@
 
 """Tests for device."""
 
+from __future__ import annotations
+
+import asyncio
+import typing as t
+
 import pytest
 
 from .device import Device
@@ -124,3 +129,28 @@ async def test_no_ignore_volatile_props():
     d._process_message(buf)
     assert d._properties.current_rpm == 42
     assert called
+
+
+@pytest.mark.asyncio
+async def test_cancel_between_connect_attempt():
+    d = Device(
+        Service(("127.0.0.1",), PORT),
+        ignore_volatile_props=False,
+        delay_between_connects_seconds=1,
+    )
+    fut = d.async_run()
+    except_context: t.Optional[dict[str, t.Any]] = None
+
+    def exception_handler(_: t.Any, context: dict[str, t.Any]) -> None:
+        nonlocal except_context
+        except_context = context
+
+    def cancel_fut():
+        fut.cancel()
+
+    loop = fut.get_loop()
+    loop.set_exception_handler(exception_handler)
+    loop.call_later(1.5, cancel_fut)
+    with pytest.raises(asyncio.CancelledError):
+        await fut
+    assert except_context is None

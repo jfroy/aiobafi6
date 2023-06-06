@@ -437,6 +437,7 @@ class Device:
         # `_sched_connect_or_signal_run_fut` directly because nothing else will.
         elif self._connect_timer is not None:
             self._connect_timer.cancel()
+            self._connect_timer = None
             self._sched_connect_or_signal_run_fut()
 
     def _finish_run(self, _: asyncio.Future) -> None:
