@@ -15,7 +15,7 @@ from google.protobuf import json_format
 from google.protobuf.message import Message
 
 from . import wireutils
-from .const import OCCUPANCY_MIN_API_VERSION
+from .const import DELAY_BETWEEN_CONNECTS_SECONDS, OCCUPANCY_MIN_API_VERSION
 from .discovery import Service
 from .proto import aiobafi6_pb2
 from .protoprop import (
@@ -41,7 +41,6 @@ VOLATILE_PROPERTIES = (
 )
 
 _LOGGER = logging.getLogger(__name__)
-_DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS = 30
 _MAX_SPEED = 7
 _RECV_BUFFER_LIMIT = 4096  # No message is ever expected to be > 4K
 _PROPS_REQUIRED_FOR_AVAILABLE = (
@@ -93,6 +92,7 @@ class Device:
         service: Service,
         query_interval_seconds: int = 60,
         ignore_volatile_props: bool = True,
+        delay_between_connects_seconds: int = DELAY_BETWEEN_CONNECTS_SECONDS,
     ):
         if len(service.ip_addresses) == 0 or service.port == 0:
             raise ValueError(
@@ -120,6 +120,7 @@ class Device:
         self._next_connect_ts: float = time.monotonic()
         self._connect_timer: t.Optional[asyncio.TimerHandle] = None
         self._connect_task: t.Optional[asyncio.Task] = None
+        self._delay_between_connects_seconds = delay_between_connects_seconds
         self._transport: t.Optional[asyncio.Transport] = None
         self._protocol: t.Optional[Protocol] = None
         self._query_timer: t.Optional[asyncio.TimerHandle] = None
@@ -283,9 +284,7 @@ class Device:
 
     def _connect(self) -> None:
         self._connect_timer = None
-        self._next_connect_ts = (
-            time.monotonic() + _DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS
-        )
+        self._next_connect_ts = time.monotonic() + self._delay_between_connects_seconds
         _LOGGER.debug(
             "%s: Connecting to %s:%s.",
             self.name,
@@ -300,9 +299,7 @@ class Device:
             )
         )
         connect_task.add_done_callback(self._finish_connect)
-        self._loop.call_later(
-            _DELAY_BETWEEN_CONNECT_ATTEMPTS_SECONDS, connect_task.cancel
-        )
+        self._loop.call_later(self._delay_between_connects_seconds, connect_task.cancel)
         self._connect_task = connect_task
 
     def _finish_connect(self, task: asyncio.Task) -> None:
@@ -375,7 +372,7 @@ class Device:
         """Run the device asynchronously.
 
         A running `Device` schedules functions on the run loop to maintain a connection
-        to the device, send periodic property queries, and service query commits.
+        to the device, sends periodic property queries, and services query commits.
 
         Returns a future that will resolve when the device stops. Cancelling any future
         returned by this function will stop the device.
@@ -424,7 +421,7 @@ class Device:
         if self._stop_requested:
             return
         _LOGGER.debug("%s: Stopping.", self.name)
-        # This will cause `_sched_connect` to signal `_run_fut`.
+        # This will cause `_sched_connect_or_signal_run_fut` to signal `_run_fut`.
         self._stop_requested = True
         # The device is not available anymore. Dispatch device callbacks so clients can
         # react to the change.
@@ -436,8 +433,8 @@ class Device:
         # Otherwise, if the device is opening a connection, cancel that.
         elif self._connect_task is not None:
             self._connect_task.cancel()
-        # Otherwise, if `_connect` is scheduled, cancel that and call `_sched_connect`
-        # directly because nothing else will.
+        # Otherwise, if `_connect` is scheduled, cancel that and call
+        # `_sched_connect_or_signal_run_fut` directly because nothing else will.
         elif self._connect_timer is not None:
             self._connect_timer.cancel()
             self._sched_connect_or_signal_run_fut()
