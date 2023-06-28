@@ -2,145 +2,383 @@ syntax = "proto2";
 
 package aiobafi6;
 
-message Root { optional Root2 root2 = 2; }
-
-message Root2 {
-  optional Commit commit = 2;
-  optional Query query = 3;
-  optional QueryResult query_result = 4;
+message RemoteCommandData
+{
+    string address = 2;
 }
 
-message Commit { optional Properties properties = 3; }
+message SystemAction
+{
+    enum Command
+    {
+        NoAction           = 0;
+        Reboot             = 2;
+        StartAudibleSignal = 4;
+        StartVisibleSignal = 5;
+        ForgetRemote       = 8;
+        ResumeFanMode      = 11;
+        ResumeLightMode    = 12;
+    }
 
-enum ProperyQuery {
-  ALL = 0;
-  FAN = 1;
-  LIGHT = 2;
-  FIRMWARE_MORE_DATETIME_API = 3;
-  NETWORK = 4;
-  SCHEDULES = 5;
-  SENSORS = 6;
+    Command command = 1;
+    reserved 2;
+
+    oneof field
+    {
+        RemoteCommandData       remoteData               = 3;
+    }
 }
 
-message Query { optional ProperyQuery property_query = 1; }
-
-message QueryResult {
-  repeated Properties properties = 2;
-  repeated Schedule schedules = 3;
+enum Direction
+{
+    Forward = 0;
+    Reverse = 1;
 }
 
-enum OffOnAuto {
-  OFF = 0;
-  ON = 1;
-  AUTO = 2;
+enum OperatingMode
+{
+    Off     = 0;
+    On      = 1;
+    Auto    = 2;
 }
 
-message Properties {
-  // General
-  optional string name = 1;
-  optional string model = 2;
-  optional string local_datetime = 4; // ISO 8601
-  optional string utc_datetime = 5;   // ISO 8601
-  optional string firmware_version = 7;
-  optional string mac_address = 8;
-
-  // API
-  optional string uuid9 = 9;
-  optional string dns_sd_uuid = 10; // uuid used for _api._tcp dns service
-  optional string api_endpoint = 11;
-  optional string api_version = 13;
-
-  optional FirmwareProperties firmware = 16;
-  optional Capabilities capabilities = 17;
-
-  // Fan
-  optional OffOnAuto fan_mode = 43;
-  optional bool reverse_enable = 44;
-  optional int32 speed_percent = 45; // 0-100
-  optional int32 speed = 46;         // 0-7
-
-  optional bool whoosh_enable = 58;
-  optional bool eco_enable = 65;
-
-  optional bool auto_comfort_enable = 47;
-  optional int32 comfort_ideal_temperature = 48; // divide by 100.0, in ºC
-  optional bool comfort_heat_assist_enable = 60;
-  optional int32 comfort_heat_assist_speed = 61;
-  optional bool comfort_heat_assist_reverse_enable = 62;
-  optional int32 comfort_min_speed = 50; // 0 for no min
-  optional int32 comfort_max_speed = 51; // 7 for no max
-
-  optional bool motion_sense_enable = 52;
-  optional int32 motion_sense_timeout = 53; // in s
-
-  optional bool return_to_auto_enable = 54;
-  optional int32 return_to_auto_timeout = 55; // in s
-
-  optional int32 target_rpm = 63;
-  optional int32 current_rpm = 64;
-
-  // Resets after about 4 minutes 30 seconds.
-  // Speculatively placed in the fan category as it is returned with other
-  // fan properties by the firmware. Arguably could be named "fast occupancy".
-  optional bool fan_occupancy_detected = 66; // `api_version` >= 5
-
-  // Light
-  optional OffOnAuto light_mode = 68;
-  optional int32 light_brightness_percent = 69; // 0-100
-  optional int32 light_brightness_level = 70;   // 0-16
-  optional int32 light_color_temperature = 71;
-
-  optional bool light_dim_to_warm_enable = 77;
-
-  optional int32 light_auto_motion_timeout = 73;
-
-  optional bool light_return_to_auto_enable = 74;
-  optional int32 light_return_to_auto_timeout = 75;
-
-  optional int32 light_warmest_color_temperature = 78;
-  optional int32 light_coolest_color_temperature = 79;
-
-  // Resets after about 9 minutes 30 seconds.
-  // Speculatively placed in the light category as it is returned with other
-  // light properties by the firmware. Arguably could be named "slow occupancy".
-  // And given its field ID, it's odd that it's not in the sensor category.
-  optional bool light_occupancy_detected = 85; // `api_version` >= 5
-
-  // Sensors
-
-  optional int32 temperature = 86; // divide by 100.0, in ºC
-  optional int32 humidity = 87;    // percent
-
-  // Connectivity
-  optional string ip_address = 120;
-  optional WifiProperties wifi = 124;
-
-  // More
-  optional bool led_indicators_enable = 134;
-  optional bool fan_beep_enable = 135;
-  optional bool legacy_ir_remote_enable = 136;
-
-  // Controls
-  optional FirmwareProperties remote_firmware = 152;
-
-  // Speculatively called stats because it contains uptime.
-  optional Stats stats = 156;
+enum MultipleLightMode
+{
+    AllLights   = 0;
+    Downlight   = 1;
+    Uplight     = 2;
 }
 
-message FirmwareProperties {
-  optional string firmware_version = 2;
-  optional string bootloader_version = 3;
-  optional string mac_address = 4;
+enum Day
+{
+    NoDay       = 0;
+    Sunday      = 1;
+    Monday      = 2;
+    Tuesday     = 3;
+    Wednesday   = 4;
+    Thursday    = 5;
+    Friday      = 6;
+    Saturday    = 7;
 }
 
-message Capabilities {
-  optional bool has_comfort1 = 1;
-  optional bool has_comfort3 = 3;
-  optional bool has_light = 4;
+enum RebootReason
+{
+    Unknown             = 0;
+    Other               = 1;
+    PowerOn             = 2;
+    Software            = 3;
+    IndependentWatchdog = 4;
+    TaskWatchdog        = 5;
+    BrownOut            = 6;
+    LowPower            = 7;
+    Lockup              = 8;
+    Pin                 = 9;
 }
 
-message WifiProperties { optional string ssid = 1; }
+message Network
+{
+    bytes ssid = 1;
+}
 
-message Schedule {}
+enum AssistWith
+{
+    Nothing = 0;
+    Heating = 1;
+    Cooling = 2;
+    All     = 3;
+}
 
-message Stats { optional int32 uptime_minutes = 1; }
+message WallControlConfiguration
+{
+    enum Function
+    {
+        NoFunction  = 0;
+        LightLevel  = 1;
+        LightColor  = 2;
+        FanSpeed    = 3;
+    }
+
+    Function topButtonFunction    = 1;
+    Function bottomButtonFunction = 2;
+}
+
+message DebugInfo
+{
+    uint32            uptimeMinutes         = 1;
+    uint32            rebootCountTotal      = 2;
+    uint32            rebootCountSincePor   = 3;
+    RebootReason      lastRebootReason      = 4;
+    uint32            lastRebootDetails     = 5;
+    uint32            softwareError         = 6;
+    uint32            softwareErrorDetails  = 7;
+}
+
+enum FirmwareType
+{
+    Host    = 0;
+    Wifi    = 1;
+    Light   = 2;
+    Motor   = 3;
+}
+
+enum ExternalDeviceType
+{
+    BleRemote       = 0;
+    BleWallControl  = 1;
+    UnknownDevice   = 2;
+}
+
+message DetailedVersion
+{
+    FirmwareType type              = 1;
+    string       appVersion        = 2;
+    string       bootloaderVersion = 3;
+}
+
+message ExternalDeviceVersion
+{
+    ExternalDeviceType type               = 1;
+    string             packageVersion     = 2;
+    string             bootloaderVersion  = 3;
+    string             macAddress         = 4;
+    RebootReason       rebootReason       = 7;
+}
+
+message GroupContainer
+{
+    bytes  uuid = 2;
+    string name = 3;
+}
+
+message StandbyLed
+{
+    enum ColorPreset
+    {
+        Custom  = 0;
+        Red     = 1;
+        Green   = 2;
+        Blue    = 3;
+        Teal    = 4;
+        Yellow  = 5;
+        Violet  = 6;
+        White   = 7;
+        Orange  = 8;
+        Pink    = 9;
+    }
+
+    ColorPreset colorPreset     = 1;
+    bool        enabled         = 2;
+    uint32      percent         = 3;
+    uint32      red             = 4;
+    uint32      green           = 5;
+    uint32      blue            = 6;
+}
+
+message DeviceCapabilities
+{
+    bool hasTempSensor       = 1;
+    bool hasHumiditySensor   = 2;
+    bool hasOccupancySensor  = 3;
+    bool hasLight            = 4;
+    bool hasLightSensor      = 5;
+    bool hasColorTempControl = 6;
+    bool hasFan              = 7;
+    bool hasSpeaker          = 8;
+    bool hasPiezo            = 9;
+    bool hasLedIndicators    = 10;
+    bool hasUplight          = 11;
+    bool hasUvcLight         = 12;
+    bool hasStandbyLed       = 13;
+    bool hasEcoMode          = 14;
+}
+
+message Property
+{
+    oneof field
+    {
+        string          name              = 1;
+        string          model             = 2;
+        string          localTime         = 4;
+        string          utcTime           = 5;
+        string          timeZone          = 6;
+        string          fwVersion         = 7;
+        string          macAddress        = 8;
+        string          cloudId           = 9;
+        string          deviceId          = 10;
+        string          cloudServerUrl    = 11;
+        string          apiVersion        = 13;
+        uint32          deviceTypeId      = 15;
+        DetailedVersion detailedVersion   = 16;
+
+        DeviceCapabilities    deviceCapabilities     = 17;
+
+        string pcbaPartNumber   = 37;
+        string pcbaRevision     = 38;
+
+        OperatingMode   fanMode                         = 43;
+        Direction       fanDirection                    = 44;
+        uint32          fanPercent                      = 45;
+        uint32          fanSpeed                        = 46;
+        bool            comfortSenseEnabled             = 47;
+        uint32          comfortSenseIdealTemp           = 48;
+        uint32          comfortSenseMinSpeed            = 50;
+        uint32          comfortSenseMaxSpeed            = 51;
+        bool            fanOccupancyEnabled             = 52;
+        uint32          fanOccupancyTimeout             = 53;
+        bool            fanReturnToAutoEnabled          = 54;
+        uint32          fanReturnToAutoTimeout          = 55;
+        bool            whooshEnabled                   = 58;
+        bool            comfortSenseHeatAssistEnabled   = 60;
+        uint32          comfortSenseHeatAssistSpeed     = 61;
+        Direction       comfortSenseHeatAssistDirection = 62;
+        uint32          commandedRpm                    = 63;
+        uint32          actualRpm                       = 64;
+        bool            ecoModeEnabled                  = 65;
+        bool            fanOccupied                     = 66;
+        bool            fanOnMeansAuto                  = 67;
+
+        OperatingMode       lightMode                     = 68;
+        uint32              lightPercent                  = 69;
+        uint32              lightLevel                    = 70;
+        uint32              lightColorTemperature         = 71;
+        bool                lightOccupancyEnabled         = 72;
+        uint32              lightOccupancyTimeout         = 73;
+        bool                lightReturnToAutoEnabled      = 74;
+        uint32              lightReturnToAutoTimeout      = 75;
+        bool                lightDimToWarmEnabled         = 77;
+        uint32              lightColorTemperatureMin      = 78;
+        uint32              lightColorTemperatureMax      = 79;
+        MultipleLightMode   multipleLightMode             = 82;
+        StandbyLed          standbyLed                    = 83;
+        bool                lightOccupied                 = 85;
+
+        uint32 temperature       = 86;
+        uint32 humidity          = 87;
+
+         uint32          fanTimerMinutes        = 95;
+         int64           fanTimerUtcExpiration  = 96;
+        
+        bool   lightOnMeansAuto  = 109;
+
+        bytes           ipAddress      = 120;
+        Network         network        = 124;
+
+        bool                     indicatorsEnabled       = 134;
+        bool                     audibleIndicatorEnabled = 135;
+        bool                     legacyIrEnabled         = 136;
+        WallControlConfiguration wallControlConfiguration =
+            139;
+
+        AssistWith assistWith  = 140;
+
+        bool                  remoteDiscoveryEnabled = 150;
+        uint32                externalDeviceCount    = 151;
+        ExternalDeviceVersion externalDeviceVersion  = 152;
+        bool                  bleRemoteSupported  = 153;
+
+        DebugInfo   debugInfo       = 156;
+
+        GroupContainer groupContainer = 171;
+
+        bool   uvcEnabled               = 172;
+        uint32 uvcLife                  = 173;
+    }
+}
+
+message ScheduleProperty
+{
+    oneof field
+    {
+        OperatingMode fanMode      = 1;
+        Direction     fanDirection = 2;
+        uint32        fanSpeed     = 4;
+        uint32        fanPercent   = 3;
+
+        OperatingMode     lightMode             = 5;
+        uint32            lightLevel            = 7;
+        uint32            lightColorTemperature = 8;
+        uint32            lightPercent          = 6;
+        uint32            uplightPercent        = 9;
+        MultipleLightMode multipleLightMode     = 10;
+
+        bool   comfortSenseEnabled   = 11;
+        uint32 comfortSenseIdealTemp = 12;
+        uint32 comfortSenseMinSpeed  = 13;
+        uint32 comfortSenseMaxSpeed  = 14;
+        bool   fanOccupancyEnabled   = 15;
+        uint32 fanOccupancyTimeout   = 16;
+        bool   lightOccupancyEnabled = 17;
+        uint32 lightOccupancyTimeout = 18;
+    }
+}
+
+message ScheduleJob
+{
+    enum Action
+    {
+        NoAction    = 0;
+        Update      = 1;
+        Remove      = 2;
+        Read        = 3;
+    }
+
+    message Schedule
+    {
+        message ScheduleEvent
+        {
+            string                    time       = 1;
+            repeated ScheduleProperty properties = 2;
+        }
+
+        uint32         id           = 1;
+        string         name         = 2;
+        repeated bytes devices      = 3;
+        repeated Day   days         = 4;
+        bool           isEnabled    = 6;
+        ScheduleEvent  startEvent   = 7;
+        ScheduleEvent  endEvent     = 8;
+    }
+
+    Action   action         = 1;
+    Schedule schedule       = 2;
+    uint32   schedulesCount = 3;
+    uint32   schedulesMax   = 4;
+}
+message Job
+{
+    SystemAction systemAction                       = 2;
+    repeated Property commands                      = 3;
+    repeated ScheduleJob scheduleJob                = 4;
+}
+
+message Update
+{
+    repeated Property properties         = 2;
+    ScheduleJob scheduleJob              = 3;
+}
+
+message Query
+{
+    enum Type
+    {
+        All             = 0;
+        Fan             = 1;
+        Light           = 2;
+        Device          = 3;
+        Network         = 4;
+        Schedules       = 5;
+        Sensor          = 6;
+    }
+
+    Type type = 1;
+}
+
+message ApiMessage
+{
+    oneof  payload
+    {
+        Job    job    = 2;
+        Query  query  = 3;
+        Update update = 4;
+    }
+}
