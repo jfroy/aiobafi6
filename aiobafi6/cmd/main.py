@@ -6,6 +6,7 @@ import asyncio
 import difflib
 import ipaddress
 import logging.config
+import sys
 import typing as t
 
 from google.protobuf import text_format
@@ -211,25 +212,32 @@ async def set_property(ip_addr: str, prop: str, value: int):
         setattr(dev, prop, int(value))
 
 
+async def discover():
+    """async discover"""
+    aiozc = AsyncZeroconf(ip_version=IPVersion.V4Only)
+    _ = ServiceBrowser(
+        aiozc.zeroconf, lambda services: print(f"== Discover ==\n{services}")
+    )
+    while True:
+        await asyncio.sleep(1)
+
+
 async def async_main():
     """async_main"""
     args = ARGS.parse_args()
     logging.config.dictConfig(LOGGING)
-    ip_addr = None
-    if args.ip_addr is not None:
-        try:
-            ip_addr = ipaddress.ip_address(args.ip_addr)
-        except ValueError:
-            print(f"invalid address: {args.ip_addr}")
-            return
     if args.discover:
-        aiozc = AsyncZeroconf(ip_version=IPVersion.V4Only)
-        _ = ServiceBrowser(
-            aiozc.zeroconf, lambda services: print(f"== Discover ==\n{services}")
-        )
-        while True:
-            await asyncio.sleep(1)
-    elif args.property is not None:
+        await discover()
+        return
+    if args.ip_addr is None:
+        print("must provide an ip address")
+        sys.exit(1)
+    try:
+        ip_addr = ipaddress.ip_address(args.ip_addr)
+    except ValueError:
+        print(f"invalid address: {args.ip_addr}")
+        sys.exit(1)
+    if args.property is not None:
         if args.value is None:
             raise RuntimeError("must specify property value")
         if args.direct:
