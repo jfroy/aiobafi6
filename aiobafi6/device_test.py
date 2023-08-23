@@ -11,6 +11,7 @@ import pytest
 
 from .device import Device
 from .discovery import PORT, Service
+from .exceptions import DeviceUUIDMismatchError
 from .proto import aiobafi6_pb2
 
 
@@ -71,7 +72,7 @@ async def test_has_auto_comfort():
 @pytest.mark.asyncio
 async def test_no_redundant_callback():
     d = Device(Service(("127.0.0.1",), PORT))
-    d._available_event.set()
+    d._available_fut.set_result(True)
     called = False
 
     def callback(_: Device):
@@ -94,7 +95,7 @@ async def test_no_redundant_callback():
 @pytest.mark.asyncio
 async def test_ignore_volatile_props():
     d = Device(Service(("127.0.0.1",), PORT), ignore_volatile_props=True)
-    d._available_event.set()
+    d._available_fut.set_result(True)
     called = False
 
     def callback(_: Device):
@@ -114,7 +115,7 @@ async def test_ignore_volatile_props():
 @pytest.mark.asyncio
 async def test_no_ignore_volatile_props():
     d = Device(Service(("127.0.0.1",), PORT), ignore_volatile_props=False)
-    d._available_event.set()
+    d._available_fut.set_result(True)
     called = False
 
     def callback(_: Device):
@@ -138,19 +139,49 @@ async def test_cancel_between_connect_attempt():
         ignore_volatile_props=False,
         delay_between_connects_seconds=1,
     )
-    fut = d.async_run()
     except_context: t.Optional[dict[str, t.Any]] = None
 
     def exception_handler(_: t.Any, context: dict[str, t.Any]) -> None:
         nonlocal except_context
         except_context = context
 
-    def cancel_fut():
+    def cancel_fut(fut: asyncio.Future):
         fut.cancel()
 
-    loop = fut.get_loop()
+    run_fut = d.async_run()
+    loop = run_fut.get_loop()
     loop.set_exception_handler(exception_handler)
-    loop.call_later(1.5, cancel_fut)
+    loop.call_later(1.5, cancel_fut, run_fut)
     with pytest.raises(asyncio.CancelledError):
-        await fut
+        await run_fut
     assert except_context is None
+    run_fut = d.async_run()
+    loop.call_later(1.5, cancel_fut, run_fut)
+    with pytest.raises(asyncio.CancelledError):
+        await d.async_wait_available()
+
+
+@pytest.mark.asyncio
+async def test_uuid_mismatch():
+    d = Device(
+        Service(("127.0.0.1",), PORT, uuid="A"),
+        ignore_volatile_props=False,
+        delay_between_connects_seconds=1,
+    )
+    run_fut = d.async_run()
+    avail_fut = d.async_wait_available()
+    root = aiobafi6_pb2.Root()  # pylint: disable=no-member
+    prop = root.root2.query_result.properties.add()
+    prop.name = "name"
+    prop.model = "model"
+    prop.firmware_version = "firmware_version"
+    prop.mac_address = "mac_address"
+    prop.dns_sd_uuid = "B"
+    prop.capabilities.SetInParent()
+    prop.ip_address = "ip_address"
+    buf = root.SerializeToString()
+    d._process_message(buf)
+    with pytest.raises(DeviceUUIDMismatchError):
+        await run_fut
+    with pytest.raises(DeviceUUIDMismatchError):
+        await avail_fut
