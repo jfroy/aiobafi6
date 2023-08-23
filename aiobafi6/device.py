@@ -463,8 +463,8 @@ class Device:
     @property
     def available(self) -> bool:
         """Return True when device is running and has values for critical properties."""
-+        available_fut = self._available_fut
-+        return available_fut.done() and not available_fut.exception()
+        available_fut = self._available_fut
+        return available_fut.done() and not available_fut.exception()
 
     async def async_wait_available(self) -> None:
         """Asynchronously wait for the device to be available."""
