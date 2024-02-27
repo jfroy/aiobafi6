@@ -22,7 +22,7 @@ zeroconf = ">=0.38"
 [tool.poetry.dev-dependencies]
 black = "^24.2.0"
 isort = "^5.13.2"
-poethepoet = "^0.24.4"
+poethepoet = "^0.25.0"
 pytest = "^8.0.1"
 pytest-asyncio = "^0.23"
 flake8 = "^7.0.0"
