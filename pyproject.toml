@@ -20,7 +20,7 @@ protobuf = ">=3.20"
 zeroconf = ">=0.38"
 
 [tool.poetry.dev-dependencies]
-black = "^24.3.0"
+black = "^24.4.2"
 isort = "^5.13.2"
 poethepoet = "^0.25.0"
 pytest = "^8.1.1"
