@@ -25,7 +25,7 @@ isort = "^5.13.2"
 poethepoet = "^0.32.2"
 pytest = "^8.3.4"
 pytest-asyncio = "^0.25"
-flake8 = "^7.1.1"
+flake8 = "^7.1.2"
 pylint = "^3.3.4"
 
 [tool.poetry.scripts]
