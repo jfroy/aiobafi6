@@ -1,6 +1,9 @@
 # Based on https://github.com/snok/install-poetry
 name: CI
 
+permissions:
+  contents: read
+
 on: push
 
 jobs:
