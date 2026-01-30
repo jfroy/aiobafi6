@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aiobafi6"
-version = "0.9.0"
+version = "0.10.2"
 description = "Big Ass Fans i6/Haiku protocol asynchronous Python library"
 authors = ["Jean-Francois Roy <jf@devklog.net>"]
 license = "Apache-2.0"
