@@ -137,6 +137,12 @@ message Capabilities {
   optional bool has_comfort1 = 1;
   optional bool has_comfort3 = 3;
   optional bool has_light = 4;
+
+  // Discovered on Haiku H/I Series fans with an uplight module. On fans with
+  // only an uplight (no downlight), `has_light` is not set but the `light_*`
+  // properties still control the uplight. Integrations should check
+  // `has_uplight` in addition to `has_light` before hiding light controls.
+  optional bool has_uplight = 6;
 }
 
 message WifiProperties { optional string ssid = 1; }

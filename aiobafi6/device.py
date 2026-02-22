@@ -157,6 +157,8 @@ class Device:
             string += f", Firmware: {self.firmware_version}"
         if self.has_light is not None:
             string += f", Has Light: {self.has_light}"
+        if self.has_uplight is not None:
+            string += f", Has Uplight: {self.has_uplight}"
         return string
 
     @property
@@ -522,6 +524,22 @@ class Device:
         self,
     ) -> t.Optional[bool]:
         return maybe_proto_field(self._properties.capabilities, "has_light")
+
+    @property
+    def has_uplight(  # pylint: disable=missing-function-docstring
+        self,
+    ) -> t.Optional[bool]:
+        return maybe_proto_field(self._properties.capabilities, "has_uplight")
+
+    @property
+    def has_any_light(self) -> bool:
+        """Return True if the device has any light (downlight or uplight).
+
+        On uplight-only fans, ``has_light`` is not set even though the
+        ``light_*`` properties control the uplight. This convenience property
+        checks both capabilities so integrations don't hide light controls.
+        """
+        return bool(self.has_light) or bool(self.has_uplight)
 
     @property
     def has_auto_comfort(self) -> bool:  # pylint: disable=missing-function-docstring
