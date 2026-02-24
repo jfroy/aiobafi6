@@ -29,6 +29,20 @@ from .protoprop import (
     to_proto_temperature,
 )
 
+NIGHTLIGHT_COLOR_MAP: dict[int, str] = {
+    1: "Red",
+    2: "Green",
+    3: "Blue",
+    4: "Teal",
+    5: "Yellow",
+    6: "Purple",
+    7: "White",
+    8: "Orange",
+    9: "Pink",
+}
+NIGHTLIGHT_COLOR_MIN = 1
+NIGHTLIGHT_COLOR_MAX = 9
+
 __all__ = (
     "VOLATILE_PROPERTIES",
     "Device",
@@ -157,6 +171,8 @@ class Device:
             string += f", Firmware: {self.firmware_version}"
         if self.has_light is not None:
             string += f", Has Light: {self.has_light}"
+        if self.has_nightlight:
+            string += f", Has Nightlight: True"
         return string
 
     @property
@@ -601,6 +617,61 @@ class Device:
     light_occupancy_detected = ProtoProp[bool](
         min_api_version=OCCUPANCY_MIN_API_VERSION
     )
+
+    # Nightlight
+
+    @property
+    def has_nightlight(self) -> bool:
+        """Whether the device has reported nightlight properties."""
+        return self._properties.HasField("nightlight")
+
+    @property
+    def nightlight_color(self) -> t.Optional[int]:  # pylint: disable=missing-function-docstring
+        if not self._properties.HasField("nightlight"):
+            return None
+        return maybe_proto_field(self._properties.nightlight, "color")
+
+    @nightlight_color.setter
+    def nightlight_color(self, value: int) -> None:
+        props = self._nightlight_props()
+        props.nightlight.color = value
+        self._commit_property(props)
+
+    @property
+    def nightlight_enabled(self) -> t.Optional[bool]:  # pylint: disable=missing-function-docstring
+        if not self._properties.HasField("nightlight"):
+            return None
+        return maybe_proto_field(self._properties.nightlight, "enabled")
+
+    @nightlight_enabled.setter
+    def nightlight_enabled(self, value: bool) -> None:
+        props = self._nightlight_props()
+        props.nightlight.enabled = value
+        self._commit_property(props)
+
+    @property
+    def nightlight_brightness_percent(self) -> t.Optional[int]:  # pylint: disable=missing-function-docstring
+        if not self._properties.HasField("nightlight"):
+            return None
+        return maybe_proto_field(self._properties.nightlight, "brightness_percent")
+
+    @nightlight_brightness_percent.setter
+    def nightlight_brightness_percent(self, value: int) -> None:
+        props = self._nightlight_props()
+        props.nightlight.brightness_percent = value
+        self._commit_property(props)
+
+    def _nightlight_props(self) -> aiobafi6_pb2.Properties:
+        """Build a Properties with the current nightlight state pre-populated.
+
+        The fan firmware applies the entire nightlight sub-message on commit,
+        resetting any omitted fields to defaults. Copying the current state
+        first ensures unchanged fields are preserved.
+        """
+        props = aiobafi6_pb2.Properties()
+        if self._properties.HasField("nightlight"):
+            props.nightlight.CopyFrom(self._properties.nightlight)
+        return props
 
     # Sensors
 

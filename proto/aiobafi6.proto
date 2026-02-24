@@ -100,6 +100,12 @@ message Properties {
   optional int32 light_warmest_color_temperature = 78;
   optional int32 light_coolest_color_temperature = 79;
 
+  // Nightlight settings. Discovered through experimentation on a Haiku H/I
+  // Series fan with an uplight module. The nightlight is a low-level ambient
+  // light controlled by a sub-message at field 83. It may be a feature of
+  // the uplight module specifically; devices without it simply omit this field.
+  optional NightlightProperties nightlight = 83;
+
   // Resets after about 9 minutes 30 seconds.
   // Speculatively placed in the light category as it is returned with other
   // light properties by the firmware. Arguably could be named "slow occupancy".
@@ -137,6 +143,18 @@ message Capabilities {
   optional bool has_comfort1 = 1;
   optional bool has_comfort3 = 3;
   optional bool has_light = 4;
+}
+
+// Nightlight settings sub-message. Discovered through experimentation:
+// changing the nightlight color in the BAF app toggles field 83.1,
+// toggling enabled/disabled changes 83.2, and adjusting the nightlight
+// brightness slider changes 83.3.
+message NightlightProperties {
+  // 1=Red, 2=Green, 3=Blue, 4=Teal, 5=Yellow, 6=Purple, 7=White,
+  // 8=Orange, 9=Pink. Values >=10 turn the light off; 0 is ignored.
+  optional int32 color = 1;
+  optional bool enabled = 2;
+  optional int32 brightness_percent = 3;
 }
 
 message WifiProperties { optional string ssid = 1; }
