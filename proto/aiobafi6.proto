@@ -53,6 +53,12 @@ message Properties {
   optional FirmwareProperties firmware = 16;
   optional Capabilities capabilities = 17;
 
+  // Unoccupied behavior settings. Discovered through experimentation: when
+  // motion sense is enabled, this sub-message at field 42 controls what happens
+  // when the room is unoccupied. The presence of smart_mix_enable (true) means
+  // "Smart Mix" mode; its absence means the fan simply turns off.
+  optional SmartMixProperties smart_mix = 42;
+
   // Fan
   optional OffOnAuto fan_mode = 43;
   optional bool reverse_enable = 44;
@@ -137,6 +143,15 @@ message Capabilities {
   optional bool has_comfort1 = 1;
   optional bool has_comfort3 = 3;
   optional bool has_light = 4;
+}
+
+// Unoccupied behavior sub-message at Properties field 42. Controls what the
+// fan does when motion sense is enabled and the room becomes unoccupied.
+// "Turn Off" = smart_mix_enable absent/false; "Smart Mix" = smart_mix_enable
+// true with a speed (1-7) for air mixing to balance temperature.
+message SmartMixProperties {
+  optional bool smart_mix_enable = 1;
+  optional int32 speed = 2; // 1-7
 }
 
 message WifiProperties { optional string ssid = 1; }

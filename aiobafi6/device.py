@@ -68,7 +68,11 @@ class Device:
     protofbuf, the majority of a device's state can be stored in a `Properties` message.
     The query loop simply updates this message using `MergeFrom`, with unknown fields
     removed (as they are otherwise treated as repeated fields and would lead to unbound
-    memory growth). Synthetic properties expose the protobuf to clients.
+    memory growth). Sub-message fields are cleared before merging so that the incoming
+    version fully replaces the previous one; without this, `MergeFrom`'s recursive merge
+    semantics would make it impossible for inner fields to become unset (e.g. the fan
+    omits `smart_mix_enable` to indicate "Turn Off" mode). Synthetic properties expose
+    the protobuf to clients.
 
     A device must be initialized with a `Service`, either obtained using the `discovery`
     module or manually created. The only required fields are `ip_addresses` and `port`.
@@ -345,6 +349,17 @@ class Device:
         root.DiscardUnknownFields()  # type: ignore
         previous = self.properties_proto
         for prop in root.root2.query_result.properties:
+            # MergeFrom recursively merges sub-messages, which means
+            # inner fields absent in the update remain set from the old
+            # state (they can never be "unset"). Clear any sub-message
+            # present in the incoming prop so it fully replaces the old.
+            for field in prop.DESCRIPTOR.fields:
+                if (
+                    field.message_type is not None
+                    and field.label != field.LABEL_REPEATED
+                    and prop.HasField(field.name)
+                ):
+                    self._properties.ClearField(field.name)
             self._properties.MergeFrom(prop)
         if not self.available:
             self._maybe_set_available()
@@ -601,6 +616,50 @@ class Device:
     light_occupancy_detected = ProtoProp[bool](
         min_api_version=OCCUPANCY_MIN_API_VERSION
     )
+
+    # Smart Mix (unoccupied behavior)
+
+    @property
+    def has_smart_mix(self) -> bool:
+        """Whether the device has reported smart mix / unoccupied behavior properties."""
+        return self._properties.HasField("smart_mix")
+
+    @property
+    def smart_mix_enable(self) -> t.Optional[bool]:  # pylint: disable=missing-function-docstring
+        if not self._properties.HasField("smart_mix"):
+            return None
+        # In proto2 the default for an unset bool is False, which correctly
+        # represents "Turn Off" (the fan omits this field in that mode).
+        return self._properties.smart_mix.smart_mix_enable
+
+    @smart_mix_enable.setter
+    def smart_mix_enable(self, value: bool) -> None:
+        props = self._smart_mix_props()
+        props.smart_mix.smart_mix_enable = value
+        self._commit_property(props)
+
+    @property
+    def smart_mix_speed(self) -> t.Optional[int]:  # pylint: disable=missing-function-docstring
+        if not self._properties.HasField("smart_mix"):
+            return None
+        return maybe_proto_field(self._properties.smart_mix, "speed")
+
+    @smart_mix_speed.setter
+    def smart_mix_speed(self, value: int) -> None:
+        props = self._smart_mix_props()
+        props.smart_mix.speed = value
+        # The firmware accepts speed changes but the BAF app may not
+        # reflect them until restarted. Follow up with a query so our
+        # own Device state confirms the new value promptly.
+        self._commit_property(props)
+        self._query()
+
+    def _smart_mix_props(self) -> aiobafi6_pb2.Properties:
+        """Build a Properties with the current smart mix state pre-populated."""
+        props = aiobafi6_pb2.Properties()
+        if self._properties.HasField("smart_mix"):
+            props.smart_mix.CopyFrom(self._properties.smart_mix)
+        return props
 
     # Sensors
 

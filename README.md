@@ -8,7 +8,8 @@ aiobafi6 is a python library to discovery, query and control
 includes i6 fans and Haiku fans with the 3.0 firmware.
 
 It supports almost all the features of the previous protocol ("SenseMe"), with
-the exception of rooms, and sleep mode. Occupancy support was added in the 3.1 firmware.
+the exception of rooms, and sleep mode. Occupancy support was added in the 3.1
+firmware. Smart Mix (unoccupied behavior) is supported for Haiku H/I Series fans.
 
 ## Command line
 
