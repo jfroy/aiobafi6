@@ -28,6 +28,16 @@ jobs:
           virtualenvs-create: true
           virtualenvs-in-project: true
 
+      - name: Verify release tag matches package version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(poetry version --short)"
+          if [ "$version" != "$TAG" ]; then
+            echo "::error::Release tag '$TAG' does not match pyproject version '$version'"
+            exit 1
+          fi
+
       - name: Build package with Poetry
         run: poetry build
 
